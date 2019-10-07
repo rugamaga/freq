@@ -1,12 +1,13 @@
 #!/bin/bash
 
+OPT=$*
 TARGET=bin/freq
 
 try() {
   expected="$1"
   input="$2"
 
-  echo "$input" | $TARGET > tmp.ll
+  echo "$input" | $TARGET $OPT > tmp.ll
   actual=`lli tmp.ll`
 
   if [ "$actual" = "$expected" ]; then
@@ -35,7 +36,11 @@ try 10 "+10 + +10 + -10"
 
 try 10 "+++10"
 
-# これが通らない
-# try 10 "- - 10"
+try 10 "- - 10"
+try 10 "--10"
+try 10 "-+-10"
+
+try "-10" "-+10"
+try "-10" "+-10"
 
 echo OK

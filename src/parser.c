@@ -53,7 +53,7 @@ static AST* parse_unary(Token** current) {
     // ここはシンタックスシュガーとして生成されるので
     // 後で解釈されるときのためにダミーのトークンを登録しておく
     Token* dummy = create_token(TT_NUM, "0", 0, 1);
-    return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_primary( current ) );
+    return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_unary( current ) );
   }
 
   return parse_primary( current );
