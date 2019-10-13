@@ -15,7 +15,8 @@
 int main(int argc, char **argv) {
   // 全体的にメモリ解放は頑張る必要がないのでやってないです(D言語方式)
 
-  bool isDebugMode = false;
+  // デバッグモード？
+  bool debug = false;
 
   // デフォルトはstdin。
   // -i file でそのファイルディスクリプタを扱う。
@@ -31,7 +32,7 @@ int main(int argc, char **argv) {
   while( (opt = getopt(argc, argv, "di:o:")) != -1 ) {
     switch (opt) {
       // デバッグモード。verboseな感じで標準エラー出力がうるさくなる。
-      case 'd': isDebugMode = true; break;
+      case 'd': debug = true; break;
       // 指定されたファイルから読み込む
       case 'i': {
         infile = fopen(optarg, "r");
@@ -64,14 +65,14 @@ int main(int argc, char **argv) {
 
   // 入力からTokenを作成
   Token* token = tokenize(input, INPUT_BUFFER_SIZE);
-  if( isDebugMode ) print_tokens(token);
+  if( debug ) print_tokens(token);
 
   // TokenをASTに変換
   AST* ast = parse(token);
-  if( isDebugMode ) print_ast(ast, 0);
+  if( debug ) print_ast(ast, 0);
 
   // コード生成
-  CodeGen* gen = create_codegen(outfile, isDebugMode);
+  CodeGen* gen = create_codegen(outfile, debug);
   generate_code(gen, ast);
 
   return 0;
