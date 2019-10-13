@@ -6,65 +6,65 @@
 #include "parser.h"
 
 CodeGen* create_codegen(FILE* fp) {
-  CodeGen* gen = (CodeGen*)malloc(sizeof(CodeGen));
-  gen->output = fp;
-  gen->index = 0;
-  return gen;
+  CodeGen* g = (CodeGen*)malloc(sizeof(CodeGen));
+  g->output = fp;
+  g->index = 0;
+  return g;
 }
 
-static void code(CodeGen* gen, const char* format, ...) {
+static void gen(CodeGen* g, const char* format, ...) {
   va_list va;
   va_start(va, format);
-  vfprintf(gen->output, format, va);
+  vfprintf(g->output, format, va);
   va_end(va);
 }
 
-static size_t code_alloca(CodeGen* gen) {
-  const size_t mem = ++(gen->index);
-  code(gen, "  %%%zu = alloca i32, align 4\n", mem);
+static size_t gen_alloca(CodeGen* g) {
+  const size_t mem = ++(g->index);
+  gen(g, "  %%%zu = alloca i32, align 4\n", mem);
   return mem;
 }
 
-static void code_store(CodeGen* gen, size_t reg, size_t mem) {
-  code(gen, "  store i32 %%%zu, i32* %%%zu, align 4\n", reg, mem);
+static void gen_store(CodeGen* g, size_t reg, size_t mem) {
+  gen(g, "  store i32 %%%zu, i32* %%%zu, align 4\n", reg, mem);
 }
 
-static void code_store_immediate(CodeGen* gen, long long imm, size_t mem) {
-  code(gen, "  store i32 %ld, i32* %%%zu\n", imm, mem);
+static void gen_store_immediate(CodeGen* g, long long imm, size_t mem) {
+  gen(g, "  store i32 %ld, i32* %%%zu\n", imm, mem);
 }
 
-static size_t code_load(CodeGen* gen, size_t src) {
-  const size_t dst = ++(gen->index);
-  code(gen, "  %%%zu = load i32, i32* %%%zu, align 4\n", dst, src);
+static size_t gen_load(CodeGen* g, size_t src) {
+  const size_t dst = ++(g->index);
+  gen(g, "  %%%zu = load i32, i32* %%%zu, align 4\n", dst, src);
   return dst;
 }
 
-static size_t code_add(CodeGen* gen, size_t lhs, size_t rhs) {
-  const size_t reg = ++(gen->index);
-  code(gen, "  %%%zu = add i32 %%%zu, %%%zu\n", reg, lhs, rhs);
+static size_t gen_add(CodeGen* g, size_t lhs, size_t rhs) {
+  const size_t reg = ++(g->index);
+  gen(g, "  %%%zu = add i32 %%%zu, %%%zu\n", reg, lhs, rhs);
   return reg;
 }
 
-static size_t code_sub(CodeGen* gen, size_t lhs, size_t rhs) {
-  const size_t reg = ++(gen->index);
-  code(gen, "  %%%zu = sub i32 %%%zu, %%%zu\n", reg, lhs, rhs);
+static size_t gen_sub(CodeGen* g, size_t lhs, size_t rhs) {
+  const size_t reg = ++(g->index);
+  gen(g, "  %%%zu = sub i32 %%%zu, %%%zu\n", reg, lhs, rhs);
   return reg;
 }
 
-static size_t code_numeric_process(CodeGen* gen, AST* ast) {
+static size_t gen_numeric_process(CodeGen* g, AST* ast) {
   if (ast->type == ST_NUM) {
-    code(gen, "  ; Assign ST_NUM\n");
-    const size_t alloc_index = code_alloca(gen);
-    code_store_immediate(gen, ast->val, alloc_index);
-    code(gen, "\n");
-    return gen->index;
+    gen(g, "  ; Assign ST_NUM\n");
+    const size_t alloc_index = gen_alloca(g);
+    gen_store_immediate(g, ast->val, alloc_index);
+    gen(g, "\n");
+    return g->index;
   }
 
-  code(gen, "  ; ------------- Calculate LHS\n");
-  const size_t lhs_index = code_numeric_process(gen, ast->lhs);
+  gen(g, "  ; ------------- Calculate LHS\n");
+  const size_t lhs_index = gen_numeric_process(g, ast->lhs);
 
-  code(gen, "  ; ------------- Calculate RHS\n");
-  const size_t rhs_index = code_numeric_process(gen, ast->rhs);
+  gen(g, "  ; ------------- Calculate RHS\n");
+  const size_t rhs_index = gen_numeric_process(g, ast->rhs);
 
   switch( ast->type ) {
   case ST_NUM:
@@ -72,56 +72,56 @@ static size_t code_numeric_process(CodeGen* gen, AST* ast) {
     break;
   case ST_ADD:
     {
-      code(gen, "  ; ------------- Calculate ST_ADD\n");
-      const size_t lhs_reg_index = code_load(gen, lhs_index);
-      const size_t rhs_reg_index = code_load(gen, rhs_index);
-      const size_t add_reg_index = code_add(gen, lhs_reg_index, rhs_reg_index);
-      const size_t res_mem_index = code_alloca(gen);
-      code_store(gen, add_reg_index, res_mem_index);
+      gen(g, "  ; ------------- Calculate ST_ADD\n");
+      const size_t lhs_reg_index = gen_load(g, lhs_index);
+      const size_t rhs_reg_index = gen_load(g, rhs_index);
+      const size_t add_reg_index = gen_add(g, lhs_reg_index, rhs_reg_index);
+      const size_t res_mem_index = gen_alloca(g);
+      gen_store(g, add_reg_index, res_mem_index);
     }
     break;
   case ST_SUB:
     {
-      code(gen, "  ; ------------- Calculate ST_ADD\n");
-      const size_t lhs_reg_index = code_load(gen, lhs_index);
-      const size_t rhs_reg_index = code_load(gen, rhs_index);
-      const size_t sub_reg_index = code_sub(gen, lhs_reg_index, rhs_reg_index);
-      const size_t res_mem_index = code_alloca(gen);
-      code_store(gen, sub_reg_index, res_mem_index);
+      gen(g, "  ; ------------- Calculate ST_ADD\n");
+      const size_t lhs_reg_index = gen_load(g, lhs_index);
+      const size_t rhs_reg_index = gen_load(g, rhs_index);
+      const size_t sub_reg_index = gen_sub(g, lhs_reg_index, rhs_reg_index);
+      const size_t res_mem_index = gen_alloca(g);
+      gen_store(g, sub_reg_index, res_mem_index);
     }
     break;
   }
 
-  code(gen, "\n");
-  return gen->index;
+  gen(g, "\n");
+  return g->index;
 }
 
-void generate_code(CodeGen* gen, AST* ast) {
-  code(gen, "%%FILE = type opaque\n");
-  code(gen, "@__stdinp = external global %%FILE*, align 8\n");
-  code(gen, "@__stdoutp = external global %%FILE*, align 8\n");
-  code(gen, "@__stderrp = external global %%FILE*, align 8\n");
-  code(gen, "\n");
+void generate_code(CodeGen* g, AST* ast) {
+  gen(g, "%%FILE = type opaque\n");
+  gen(g, "@__stdinp = external global %%FILE*, align 8\n");
+  gen(g, "@__stdoutp = external global %%FILE*, align 8\n");
+  gen(g, "@__stderrp = external global %%FILE*, align 8\n");
+  gen(g, "\n");
 
-  code(gen, "@str = private unnamed_addr constant [4 x i8] c\"%%d\\0A\\00\", align 1\n");
-  code(gen, "\n");
+  gen(g, "@str = private unnamed_addr constant [4 x i8] c\"%%d\\0A\\00\", align 1\n");
+  gen(g, "\n");
 
-  code(gen, "declare i32 @fprintf(%%FILE*, i8*, ...)\n");
-  code(gen, "declare i32 @printf(i8*, ...)\n");
-  code(gen, "declare i32 @atoi(...)\n");
-  code(gen, "\n");
+  gen(g, "declare i32 @fprintf(%%FILE*, i8*, ...)\n");
+  gen(g, "declare i32 @printf(i8*, ...)\n");
+  gen(g, "declare i32 @atoi(...)\n");
+  gen(g, "\n");
 
-  code(gen, "define i32 @main() nounwind {\n");
+  gen(g, "define i32 @main() nounwind {\n");
 
-  const size_t num_proc_last_index = code_numeric_process(gen, ast);
-  const size_t reg_index = ++(gen->index);
+  const size_t num_proc_last_index = gen_numeric_process(g, ast);
+  const size_t reg_index = ++(g->index);
 
-  code(gen, "  ; ------------- Output result\n");
-  code(gen, "  %%%zu = load i32, i32* %%%zu, align 4\n", reg_index, num_proc_last_index);
-  code(gen, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", reg_index);
-  code(gen, "\n");
+  gen(g, "  ; ------------- Output result\n");
+  gen(g, "  %%%zu = load i32, i32* %%%zu, align 4\n", reg_index, num_proc_last_index);
+  gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", reg_index);
+  gen(g, "\n");
 
-  code(gen, "  ret i32 %%%zu\n", reg_index);
-  code(gen, "}\n");
+  gen(g, "  ret i32 %%%zu\n", reg_index);
+  gen(g, "}\n");
 }
 
