@@ -29,6 +29,10 @@ static void code_store(CodeGen* gen, size_t reg, size_t mem) {
   code(gen, "  store i32 %%%zu, i32* %%%zu, align 4\n", reg, mem);
 }
 
+static void code_store_immediate(CodeGen* gen, long long imm, size_t mem) {
+  code(gen, "  store i32 %ld, i32* %%%zu\n", imm, mem);
+}
+
 static size_t code_load(CodeGen* gen, size_t src) {
   const size_t dst = ++(gen->index);
   code(gen, "  %%%zu = load i32, i32* %%%zu, align 4\n", dst, src);
@@ -49,12 +53,9 @@ static size_t code_sub(CodeGen* gen, size_t lhs, size_t rhs) {
 
 static size_t code_numeric_process(CodeGen* gen, AST* ast) {
   if (ast->type == ST_NUM) {
-    const size_t alloc_index = ++(gen->index);
-
     code(gen, "  ; Assign ST_NUM\n");
-    code(gen, "  %%%zu = alloca i32, align 4\n", alloc_index);
-    code(gen, "  store i32 %ld, i32* %%%zu\n", ast->val, alloc_index);
-
+    const size_t alloc_index = code_alloca(gen);
+    code_store_immediate(gen, ast->val, alloc_index);
     code(gen, "\n");
     return gen->index;
   }
