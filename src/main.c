@@ -71,9 +71,8 @@ int main(int argc, char **argv) {
   if( isDebugMode ) print_ast(ast, 0);
 
   // コード生成
-  CodeGen* gen = create_codegen(OUTPUT_BUFFER_SIZE);
+  CodeGen* gen = create_codegen(outfile);
   generate_code(gen, ast);
 
-  fprintf(outfile, "%s", gen->output);
   return 0;
 }

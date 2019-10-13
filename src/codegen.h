@@ -3,11 +3,9 @@
 #include "parser.h"
 
 typedef struct {
-  char const* output;
-  char* current;
-  size_t len;
+  FILE* output;
   size_t index;
 } CodeGen;
 
-CodeGen* create_codegen(size_t len);
+CodeGen* create_codegen(FILE* output);
 void generate_code(CodeGen* gen, AST* ast);

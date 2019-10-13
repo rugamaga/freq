@@ -5,12 +5,9 @@
 #include "codegen.h"
 #include "parser.h"
 
-CodeGen* create_codegen(size_t len) {
+CodeGen* create_codegen(FILE* fp) {
   CodeGen* gen = (CodeGen*)malloc(sizeof(CodeGen));
-  // 一定のバッファまでコンパイル結果を許す
-  // これを超えるLLVM IRサイズは許さないことで話を単純化する
-  gen->output = gen->current = (char*)malloc(sizeof(char) * len);
-  gen->len = len;
+  gen->output = fp;
   gen->index = 0;
   return gen;
 }
@@ -18,7 +15,7 @@ CodeGen* create_codegen(size_t len) {
 static void code(CodeGen* gen, const char* format, ...) {
   va_list va;
   va_start(va, format);
-  gen->current += vsprintf(gen->current, format, va);
+  vfprintf(gen->output, format, va);
   va_end(va);
 }
 
