@@ -91,6 +91,8 @@ static AST* parse_equality(Token** current) {
     Token* tok;
     if( (tok = consume( current, TT_EQUAL )) )
       node = create_ast( ST_EQUAL, tok, node, parse_expr(current) );
+    else if( (tok = consume( current, TT_NOT_EQUAL )) )
+      node = create_ast( ST_NOT_EQUAL, tok, node, parse_expr(current) );
     else
       return node;
   }

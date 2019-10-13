@@ -79,7 +79,7 @@ static size_t gen_sdiv(CodeGen* g, size_t lhs, size_t rhs) {
   return reg;
 }
 
-static size_t gen_cmp(CodeGen* g, const* cmp, size_t lhs, size_t rhs) {
+static size_t gen_cmp(CodeGen* g, const char* cmp, size_t lhs, size_t rhs) {
   const size_t reg = ++(g->index);
   gen(g, "  %%%zu = icmp %s i32 %%%zu, %%%zu\n", reg, cmp, lhs, rhs);
   return reg;
@@ -91,7 +91,7 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
     const size_t mem = gen_alloca(g);
     gen_store_immediate(g, ast->val, mem);
     gen(g, "\n");
-    return g->index;
+    return mem;
   }
 
   comment(g, "  ; ------------- Calculate LHS\n");
@@ -150,6 +150,17 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
       const size_t lhs_reg = gen_load(g, lhs);
       const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "eq", lhs_reg, rhs_reg);
+      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
+      const size_t res_mem = gen_alloca(g);
+      gen_store(g, zext_reg, res_mem);
+    }
+    break;
+  case ST_NOT_EQUAL:
+    {
+      comment(g, "  ; ------------- Calculate ST_NOT_EQUAL\n");
+      const size_t lhs_reg = gen_load(g, lhs);
+      const size_t rhs_reg = gen_load(g, rhs);
+      const size_t cmp_reg = gen_cmp(g, "ne", lhs_reg, rhs_reg);
       const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
       const size_t res_mem = gen_alloca(g);
       gen_store(g, zext_reg, res_mem);
