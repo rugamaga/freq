@@ -28,7 +28,7 @@ static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs) {
 }
 
 static AST* parse_expr(Token** current);
-static AST* parse_primary(Token** current) {
+static AST* parse_factor(Token** current) {
   Token* tok;
   AST* node;
   if( consume( current, TT_LEFT_BRACKET ) ) {
@@ -56,7 +56,7 @@ static AST* parse_unary(Token** current) {
     return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_unary( current ) );
   }
 
-  return parse_primary( current );
+  return parse_factor( current );
 }
 
 static AST* parse_term(Token** current) {
