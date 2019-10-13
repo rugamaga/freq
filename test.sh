@@ -130,4 +130,24 @@ try 1 "0 != (0 + 1)"
 try 0 "0 != (1 * 0)"
 try 0 "0 != (0 * 1)"
 
+# --------- tests for lt
+try 1 "10 < 100"
+try 0 "100 < 10"
+try 0 "10 < 10"
+
+# --------- tests for lteq
+try 1 "10 <= 100"
+try 0 "100 <= 10"
+try 1 "10 <= 10"
+
+# --------- tests for gt
+try 0 "10 > 100"
+try 1 "100 > 10"
+try 0 "10 > 10"
+
+# --------- tests for gteq
+try 0 "10 >= 100"
+try 1 "100 >= 10"
+try 1 "10 >= 10"
+
 echo OK

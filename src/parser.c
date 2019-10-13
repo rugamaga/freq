@@ -85,14 +85,32 @@ static AST* parse_expr(Token** current) {
   }
 }
 
-static AST* parse_equality(Token** current) {
+
+static AST* parse_rational(Token** current) {
   AST* node = parse_expr(current);
   for( ; ; ) {
     Token* tok;
+    if( (tok = consume( current, TT_LT )) )
+      node = create_ast( ST_LT, tok, node, parse_expr(current) );
+    else if( (tok = consume( current, TT_LTEQ )) )
+      node = create_ast( ST_LTEQ, tok, node, parse_expr(current) );
+    else if( (tok = consume( current, TT_GT )) )
+      node = create_ast( ST_GT, tok, node, parse_expr(current) );
+    else if( (tok = consume( current, TT_GTEQ )) )
+      node = create_ast( ST_GTEQ, tok, node, parse_expr(current) );
+    else
+      return node;
+  }
+}
+
+static AST* parse_equality(Token** current) {
+  AST* node = parse_rational(current);
+  for( ; ; ) {
+    Token* tok;
     if( (tok = consume( current, TT_EQUAL )) )
-      node = create_ast( ST_EQUAL, tok, node, parse_expr(current) );
+      node = create_ast( ST_EQUAL, tok, node, parse_rational(current) );
     else if( (tok = consume( current, TT_NOT_EQUAL )) )
-      node = create_ast( ST_NOT_EQUAL, tok, node, parse_expr(current) );
+      node = create_ast( ST_NOT_EQUAL, tok, node, parse_rational(current) );
     else
       return node;
   }

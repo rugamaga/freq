@@ -9,6 +9,8 @@ typedef enum {
   TS_NUM,
   TS_EQUAL,
   TS_NOT,
+  TS_LT,
+  TS_GT,
 } TokenizerState;
 
 Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) {
@@ -58,11 +60,6 @@ static void gain(Tokenizer* tn) {
   tn->pos += 1;
 }
 
-static void skip(Tokenizer* tn) {
-  reset(tn);
-  gain(tn);
-}
-
 static void accept(Tokenizer* tn, TokenType type) {
   Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
   tn->current->next = t;
@@ -92,7 +89,8 @@ Token* tokenize(const char* buffer, size_t len) {
       // つまるところ「連続でスペースだったね…」ということ。
       // まだ何もトークンがないので読み飛ばす以外にすることはない
       if( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -111,62 +109,87 @@ Token* tokenize(const char* buffer, size_t len) {
           c == '9'
       ) {
         // 1文字読んで数値解析モードに飛ぶ
-        skip(tn);
+        reset(tn);
+        gain(tn);
         into(tn, TS_NUM);
         continue;
       }
 
       // TS_EMPTYでイコールが着たら、多分Equal。
       if( c == '=' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         into(tn, TS_EQUAL);
         continue;
       }
 
       // TS_EMPTYでノットが着たら、多分Not。
       if( c == '!' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         into(tn, TS_NOT);
         continue;
       }
 
+      // TS_EMPTYでLTが着たら、多分LT
+      if( c == '<' ) {
+        reset(tn);
+        gain(tn);
+        into(tn, TS_LT);
+        continue;
+      }
+
+      // TS_EMPTYでLTが着たら、多分LT
+      if( c == '>' ) {
+        reset(tn);
+        gain(tn);
+        into(tn, TS_GT);
+        continue;
+      }
+
       if( c == '+' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         accept(tn, TT_PLUS);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '-' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         accept(tn, TT_MINUS);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '*' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         accept(tn, TT_MUL);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '/' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         accept(tn, TT_DIV);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '(' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         accept(tn, TT_LEFT_BRACKET);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == ')' ) {
-        skip(tn);
+        reset(tn);
+        gain(tn);
         accept(tn, TT_RIGHT_BRACKET);
         into(tn, TS_EMPTY);
         continue;
@@ -216,7 +239,8 @@ Token* tokenize(const char* buffer, size_t len) {
       // 同値判定のためのイコールだったということです
       if( c == '=' ) {
         accept(tn, TT_EQUAL);
-        skip(tn);
+        reset(tn);
+        gain(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -235,7 +259,8 @@ Token* tokenize(const char* buffer, size_t len) {
       // 不等号だったということです
       if( c == '=' ) {
         accept(tn, TT_NOT_EQUAL);
-        skip(tn);
+        reset(tn);
+        gain(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -247,6 +272,48 @@ Token* tokenize(const char* buffer, size_t len) {
       // メモリ解放は頑張らない(D言語方式)
       // free_token(current);
       return NULL;
+    }
+
+    if( tn->state == TS_LT ) {
+      // ここでイコールがきたということは、
+      // LTEQだったということです
+      if( c == '=' ) {
+        accept(tn, TT_LTEQ);
+        reset(tn);
+        gain(tn);
+        // トークンを読み込んだので行き先状態はTS_EMPTY
+        into(tn, TS_EMPTY);
+        continue;
+      }
+
+      // それ以外の文字が来たということは
+      // LTだったということです
+      accept(tn, TT_LT);
+      reset(tn);
+      into(tn, TS_EMPTY);
+
+      continue;
+    }
+
+    if( tn->state == TS_GT ) {
+      // ここでイコールがきたということは、
+      // GTEQだったということです
+      if( c == '=' ) {
+        accept(tn, TT_GTEQ);
+        reset(tn);
+        gain(tn);
+        // トークンを読み込んだので行き先状態はTS_EMPTY
+        into(tn, TS_EMPTY);
+        continue;
+      }
+
+      // それ以外の文字が来たということは
+      // GTだったということです
+      accept(tn, TT_GT);
+      reset(tn);
+      into(tn, TS_EMPTY);
+
+      continue;
     }
 
     // 取り扱えない文字なのでエラーを出して落とす

@@ -10,6 +10,10 @@ typedef enum {
   ST_DIV,
   ST_EQUAL,
   ST_NOT_EQUAL,
+  ST_LT,
+  ST_LTEQ,
+  ST_GT,
+  ST_GTEQ,
 } SyntaxType;
 
 typedef struct tAST {

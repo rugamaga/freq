@@ -11,6 +11,10 @@ typedef enum {
   TT_RIGHT_BRACKET,
   TT_EQUAL,
   TT_NOT_EQUAL,
+  TT_LT,
+  TT_LTEQ,
+  TT_GT,
+  TT_GTEQ,
 } TokenType;
 
 typedef struct tToken {
