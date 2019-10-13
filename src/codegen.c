@@ -5,11 +5,21 @@
 #include "codegen.h"
 #include "parser.h"
 
-CodeGen* create_codegen(FILE* fp) {
+CodeGen* create_codegen(FILE* fp, bool debug) {
   CodeGen* g = (CodeGen*)malloc(sizeof(CodeGen));
   g->output = fp;
   g->index = 0;
+  g->debug = debug;
   return g;
+}
+
+static void comment(CodeGen* g, const char* format, ...) {
+  if( !g->debug ) return;
+
+  va_list va;
+  va_start(va, format);
+  vfprintf(g->output, format, va);
+  va_end(va);
 }
 
 static void gen(CodeGen* g, const char* format, ...) {
@@ -53,17 +63,17 @@ static size_t gen_sub(CodeGen* g, size_t lhs, size_t rhs) {
 
 static size_t gen_numeric_process(CodeGen* g, AST* ast) {
   if (ast->type == ST_NUM) {
-    gen(g, "  ; Assign ST_NUM\n");
+    comment(g, "  ; Assign ST_NUM\n");
     const size_t mem = gen_alloca(g);
     gen_store_immediate(g, ast->val, mem);
     gen(g, "\n");
     return g->index;
   }
 
-  gen(g, "  ; ------------- Calculate LHS\n");
+  comment(g, "  ; ------------- Calculate LHS\n");
   const size_t lhs = gen_numeric_process(g, ast->lhs);
 
-  gen(g, "  ; ------------- Calculate RHS\n");
+  comment(g, "  ; ------------- Calculate RHS\n");
   const size_t rhs = gen_numeric_process(g, ast->rhs);
 
   switch( ast->type ) {
@@ -72,7 +82,7 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
     break;
   case ST_ADD:
     {
-      gen(g, "  ; ------------- Calculate ST_ADD\n");
+      comment(g, "  ; ------------- Calculate ST_ADD\n");
       const size_t lhs_reg = gen_load(g, lhs);
       const size_t rhs_reg = gen_load(g, rhs);
       const size_t add_reg = gen_add(g, lhs_reg, rhs_reg);
@@ -82,7 +92,7 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
     break;
   case ST_SUB:
     {
-      gen(g, "  ; ------------- Calculate ST_ADD\n");
+      comment(g, "  ; ------------- Calculate ST_ADD\n");
       const size_t lhs_reg = gen_load(g, lhs);
       const size_t rhs_reg = gen_load(g, rhs);
       const size_t sub_reg = gen_sub(g, lhs_reg, rhs_reg);
@@ -115,7 +125,7 @@ void generate_code(CodeGen* g, AST* ast) {
 
   const size_t num_proc_last = gen_numeric_process(g, ast);
 
-  gen(g, "  ; ------------- Output result\n");
+  comment(g, "  ; ------------- Output result\n");
   const size_t result_reg = gen_load(g, num_proc_last);
   gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", result_reg);
   gen(g, "\n");
