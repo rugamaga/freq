@@ -19,35 +19,35 @@ static void code(CodeGen* gen, const char* format, ...) {
   va_end(va);
 }
 
-static size_t generate_alloca(CodeGen* gen) {
+static size_t code_alloca(CodeGen* gen) {
   const size_t mem = ++(gen->index);
   code(gen, "  %%%zu = alloca i32, align 4\n", mem);
   return mem;
 }
 
-static void generate_store(CodeGen* gen, size_t reg, size_t mem) {
+static void code_store(CodeGen* gen, size_t reg, size_t mem) {
   code(gen, "  store i32 %%%zu, i32* %%%zu, align 4\n", reg, mem);
 }
 
-static size_t generate_load(CodeGen* gen, size_t src) {
+static size_t code_load(CodeGen* gen, size_t src) {
   const size_t dst = ++(gen->index);
   code(gen, "  %%%zu = load i32, i32* %%%zu, align 4\n", dst, src);
   return dst;
 }
 
-static size_t generate_add(CodeGen* gen, size_t lhs, size_t rhs) {
+static size_t code_add(CodeGen* gen, size_t lhs, size_t rhs) {
   const size_t reg = ++(gen->index);
   code(gen, "  %%%zu = add i32 %%%zu, %%%zu\n", reg, lhs, rhs);
   return reg;
 }
 
-static size_t generate_sub(CodeGen* gen, size_t lhs, size_t rhs) {
+static size_t code_sub(CodeGen* gen, size_t lhs, size_t rhs) {
   const size_t reg = ++(gen->index);
   code(gen, "  %%%zu = sub i32 %%%zu, %%%zu\n", reg, lhs, rhs);
   return reg;
 }
 
-static size_t generate_numeric_process(CodeGen* gen, AST* ast) {
+static size_t code_numeric_process(CodeGen* gen, AST* ast) {
   if (ast->type == ST_NUM) {
     const size_t alloc_index = ++(gen->index);
 
@@ -60,10 +60,10 @@ static size_t generate_numeric_process(CodeGen* gen, AST* ast) {
   }
 
   code(gen, "  ; ------------- Calculate LHS\n");
-  const size_t lhs_index = generate_numeric_process(gen, ast->lhs);
+  const size_t lhs_index = code_numeric_process(gen, ast->lhs);
 
   code(gen, "  ; ------------- Calculate RHS\n");
-  const size_t rhs_index = generate_numeric_process(gen, ast->rhs);
+  const size_t rhs_index = code_numeric_process(gen, ast->rhs);
 
   switch( ast->type ) {
   case ST_NUM:
@@ -72,21 +72,21 @@ static size_t generate_numeric_process(CodeGen* gen, AST* ast) {
   case ST_ADD:
     {
       code(gen, "  ; ------------- Calculate ST_ADD\n");
-      const size_t lhs_reg_index = generate_load(gen, lhs_index);
-      const size_t rhs_reg_index = generate_load(gen, rhs_index);
-      const size_t add_reg_index = generate_add(gen, lhs_reg_index, rhs_reg_index);
-      const size_t res_mem_index = generate_alloca(gen);
-      generate_store(gen, add_reg_index, res_mem_index);
+      const size_t lhs_reg_index = code_load(gen, lhs_index);
+      const size_t rhs_reg_index = code_load(gen, rhs_index);
+      const size_t add_reg_index = code_add(gen, lhs_reg_index, rhs_reg_index);
+      const size_t res_mem_index = code_alloca(gen);
+      code_store(gen, add_reg_index, res_mem_index);
     }
     break;
   case ST_SUB:
     {
       code(gen, "  ; ------------- Calculate ST_ADD\n");
-      const size_t lhs_reg_index = generate_load(gen, lhs_index);
-      const size_t rhs_reg_index = generate_load(gen, rhs_index);
-      const size_t sub_reg_index = generate_sub(gen, lhs_reg_index, rhs_reg_index);
-      const size_t res_mem_index = generate_alloca(gen);
-      generate_store(gen, sub_reg_index, res_mem_index);
+      const size_t lhs_reg_index = code_load(gen, lhs_index);
+      const size_t rhs_reg_index = code_load(gen, rhs_index);
+      const size_t sub_reg_index = code_sub(gen, lhs_reg_index, rhs_reg_index);
+      const size_t res_mem_index = code_alloca(gen);
+      code_store(gen, sub_reg_index, res_mem_index);
     }
     break;
   }
@@ -112,7 +112,7 @@ void generate_code(CodeGen* gen, AST* ast) {
 
   code(gen, "define i32 @main() nounwind {\n");
 
-  const size_t num_proc_last_index = generate_numeric_process(gen, ast);
+  const size_t num_proc_last_index = code_numeric_process(gen, ast);
   const size_t reg_index = ++(gen->index);
 
   code(gen, "  ; ------------- Output result\n");
