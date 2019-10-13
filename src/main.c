@@ -16,12 +16,42 @@ int main(int argc, char **argv) {
   // 全体的にメモリ解放は頑張る必要がないのでやってないです(D言語方式)
 
   bool isDebugMode = false;
+
+  // デフォルトはstdin。
+  // -i file でそのファイルディスクリプタを扱う。
+  // これも最後まで特に開放しないです。
+  FILE* infile = stdin;
+
+  // デフォルトはstdout。
+  // -o file でそのファイルディスクリプタを扱う。
+  // これも最後まで特に開放しないです。
+  FILE* outfile = stdout;
+
   int opt;
-  while( (opt = getopt(argc, argv, "d")) != -1 ) {
+  while( (opt = getopt(argc, argv, "di:o:")) != -1 ) {
     switch (opt) {
+      // デバッグモード。verboseな感じで標準エラー出力がうるさくなる。
       case 'd': isDebugMode = true; break;
+      // 指定されたファイルから読み込む
+      case 'i': {
+        infile = fopen(optarg, "r");
+        if(infile  == NULL) {
+          fprintf(stderr, "Can't open input file.");
+          exit(EXIT_FAILURE);
+        }
+      }
+      break;
+      // 指定されたファイルに書き出す
+      case 'o': {
+        outfile = fopen(optarg, "w");
+        if(outfile == NULL) {
+          fprintf(stderr, "Can't open output file.");
+          exit(EXIT_FAILURE);
+        }
+      }
+      break;
       default:
-        fprintf(stderr, "Usage: %s [-d]\n", argv[0]);
+        fprintf(stderr, "Usage: %s [-d] [-i infile] [-o outfile]\n", argv[0]);
         exit(EXIT_FAILURE);
     }
   }
@@ -30,7 +60,7 @@ int main(int argc, char **argv) {
   // それ以上は許さないことで話を単純化する
   char* input;
   input = (char*)malloc(sizeof(char) * INPUT_BUFFER_SIZE);
-  fread(input, sizeof(char), INPUT_BUFFER_SIZE, stdin);
+  fread(input, sizeof(char), INPUT_BUFFER_SIZE, infile);
 
   // 入力からTokenを作成
   Token* token = tokenize(input, INPUT_BUFFER_SIZE);
@@ -48,6 +78,6 @@ int main(int argc, char **argv) {
   // コード生成
   generate_code(output, OUTPUT_BUFFER_SIZE, ast);
 
-  fprintf(stdout, "%s", output);
+  fprintf(outfile, "%s", output);
   return 0;
 }
