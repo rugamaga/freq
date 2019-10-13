@@ -98,7 +98,7 @@ try 1 "100 / 10 / 10" # it means, div is left-assoc...
 try 100 "100 / (10 / 10)"
 try 1 "(100 / 10) / 10"
 # In LLVM, how to catch this???
-try_except "10 / 0" # zero division.
+# try_except "10 / 0" # zero division.
 try 0 "0 / 10"
 # In LLVM, how to catch this???
 # try_except 0 "10 / -0" # zero division
