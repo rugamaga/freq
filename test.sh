@@ -119,4 +119,19 @@ try 0 "-0 / 10"
 # try 1 "0 == (1 * 0)"
 # try 1 "0 == (0 * 1)"
 
+# --------- tests for inequality
+
+# not yet implemented
+
+# try 0 "0 == 0"
+# try 1 "0 == 1"
+# try 1 "1 == 0"
+
+# try 0 "0 == (0 + 0)"
+# try 1 "0 == (1 + 0)"
+# try 1 "0 == (0 + 1)"
+
+# try 0 "0 == (1 * 0)"
+# try 0 "0 == (0 * 1)"
+
 echo OK

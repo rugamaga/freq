@@ -85,13 +85,24 @@ static AST* parse_expr(Token** current) {
   }
 }
 
+static AST* parse_equality(Token** current) {
+  AST* node = parse_expr(current);
+  for( ; ; ) {
+    Token* tok;
+    if( (tok = consume( current, TT_EQUAL )) )
+      node = create_ast( ST_EQUAL, tok, node, parse_expr(current) );
+    else
+      return node;
+  }
+}
+
 AST* parse(Token* token) {
   // pointerへのpointerを取ることで
   // この後の内部処理を行えるようにする
   Token** current = &token;
   if( !consume( current, TT_ROOT ) )
     return NULL;
-  return parse_expr(current);
+  return parse_equality(current);
 }
 
 void print_ast(AST* ast, size_t level) {

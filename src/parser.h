@@ -8,6 +8,7 @@ typedef enum {
   ST_SUB,
   ST_MUL,
   ST_DIV,
+  ST_EQUAL,
 } SyntaxType;
 
 typedef struct tAST {
