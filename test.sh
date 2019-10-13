@@ -33,11 +33,14 @@ try_file() {
   fi
 }
 
+# --------- tests for num
 try 0 0
 try 42 42
 
+# --------- tests for add
 try 30 "10 + 10 + 10"
 
+# --------- tests for sub
 try 10 "10 - 10 + 10"
 try 10 "10 + 10 - 10"
 
@@ -49,8 +52,10 @@ try 10 "-10 + +10 + +10"
 try 10 "+10 + -10 + +10"
 try 10 "+10 + +10 + -10"
 
+# --------- tests for uni-plus
 try 10 "+++10"
 
+# --------- tests for uni-minus
 try 10 "- - 10"
 try 10 "--10"
 try 10 "-+-10"
@@ -58,6 +63,7 @@ try 10 "-+-10"
 try "-10" "-+10"
 try "-10" "+-10"
 
+# --------- tests for file read
 try_file 20 "test/add.fq"
 
 echo OK
