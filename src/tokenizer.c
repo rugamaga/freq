@@ -7,6 +7,7 @@
 typedef enum {
   TS_EMPTY,
   TS_NUM,
+  TS_EQUAL,
 } TokenizerState;
 
 Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) {
@@ -72,6 +73,14 @@ Token* tokenize(const char* buffer, size_t len) {
         beg = pos;
         pos += 1;
         state = TS_NUM;
+        continue;
+      }
+
+      // TS_EMPTYでイコールが着たら、多分Equal。
+      if(c == '=') {
+        beg = pos;
+        pos += 1;
+        state = TS_EQUAL;
         continue;
       }
 
@@ -174,6 +183,23 @@ Token* tokenize(const char* buffer, size_t len) {
       state = TS_EMPTY;
 
       continue;
+    }
+
+    if( state == TS_EQUAL ) {
+      // ここでイコールがきたということは、
+      // 同値判定のためのイコールだったということです
+      if( c == '=' ) {
+        Token* t = create_token(TT_EQUAL, buffer, beg, pos - beg);
+        current->next = t;
+        current = t;
+      }
+
+      // 取り扱えない文字なのでエラーを出して落とす
+      fprintf(stderr, "Tokenize中に予想外の文字(%zu文字目の'%c')が着てしまいました。\n", pos, c);
+
+      // メモリ解放は頑張らない(D言語方式)
+      // free_token(current);
+      return NULL;
     }
 
     // 取り扱えない文字なのでエラーを出して落とす

@@ -9,6 +9,7 @@ typedef enum {
   TT_DIV,
   TT_LEFT_BRACKET,
   TT_RIGHT_BRACKET,
+  TT_EQUAL,
 } TokenType;
 
 typedef struct tToken {
