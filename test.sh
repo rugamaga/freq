@@ -104,4 +104,19 @@ try 0 "0 / 10"
 # try_except 0 "10 / -0" # zero division
 try 0 "-0 / 10"
 
+# --------- tests for equality
+
+# not yet implemented
+
+# try 1 "0 == 0"
+# try 0 "0 == 1"
+# try 0 "1 == 0"
+
+# try 1 "0 == (0 + 0)"
+# try 0 "0 == (1 + 0)"
+# try 0 "0 == (0 + 1)"
+
+# try 1 "0 == (1 * 0)"
+# try 1 "0 == (0 * 1)"
+
 echo OK
