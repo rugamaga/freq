@@ -23,6 +23,7 @@ Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) 
 
 typedef struct {
   const char* buffer;
+  Token* root;
   Token* current;
   TokenizerState state;
   size_t beg;
@@ -30,20 +31,50 @@ typedef struct {
   size_t len;
 } Tokenizer;
 
-Token* tokenize(const char* buffer, size_t len) {
+static Tokenizer* create_tokenizer(const char* buffer, size_t len) {
+  // ステートマシンとして全体の処理を行う
+  Tokenizer* tn = (Tokenizer*)malloc(sizeof(Tokenizer));
+
+  tn->buffer = buffer;
+
   // トークンは常に0文字目のTT_ROOTから
   // 始まってると考えることにして
   // 何かと楽をしましょう。
-  Token* root = create_token(TT_ROOT, buffer, 0, 0);
+  tn->current = tn->root = create_token(TT_ROOT, buffer, 0, 0);
 
-  // ステートマシンとして全体の処理を行う
-  Tokenizer* tn = (Tokenizer*)malloc(sizeof(Tokenizer));
-  tn->buffer = buffer;
-  tn->current = root;
   tn->state = TS_EMPTY;
   tn->beg = 0;
   tn->pos = 0;
   tn->len = len;
+
+  return tn;
+}
+
+static void reset(Tokenizer* tn) {
+  tn->beg = tn->pos;
+}
+
+static void gain(Tokenizer* tn) {
+  tn->pos += 1;
+}
+
+static void skip(Tokenizer* tn) {
+  reset(tn);
+  gain(tn);
+}
+
+static void accept(Tokenizer* tn, TokenType type) {
+  Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
+  tn->current->next = t;
+  tn->current = t;
+}
+
+static void into(Tokenizer* tn, TokenizerState state) {
+  tn->state = state;
+}
+
+Token* tokenize(const char* buffer, size_t len) {
+  Tokenizer* tn = create_tokenizer(buffer, len);
 
   while( tn->pos < tn->len ) {
     const char c = tn->buffer[tn->pos];
@@ -61,9 +92,8 @@ Token* tokenize(const char* buffer, size_t len) {
       // つまるところ「連続でスペースだったね…」ということ。
       // まだ何もトークンがないので読み飛ばす以外にすることはない
       if( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        into(tn, TS_EMPTY);
         continue;
       }
 
@@ -81,85 +111,64 @@ Token* tokenize(const char* buffer, size_t len) {
           c == '9'
       ) {
         // 1文字読んで数値解析モードに飛ぶ
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        tn->state = TS_NUM;
+        skip(tn);
+        into(tn, TS_NUM);
         continue;
       }
 
       // TS_EMPTYでイコールが着たら、多分Equal。
       if( c == '=' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        tn->state = TS_EQUAL;
+        skip(tn);
+        into(tn, TS_EQUAL);
         continue;
       }
 
       // TS_EMPTYでノットが着たら、多分Not。
       if( c == '!' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        tn->state = TS_NOT;
+        skip(tn);
+        into(tn, TS_NOT);
         continue;
       }
 
       if( c == '+' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        Token* t = create_token(TT_PLUS, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        accept(tn, TT_PLUS);
+        into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '-' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        Token* t = create_token(TT_MINUS, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        accept(tn, TT_MINUS);
+        into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '*' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        Token* t = create_token(TT_MUL, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        accept(tn, TT_MUL);
+        into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '/' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        Token* t = create_token(TT_DIV, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        accept(tn, TT_DIV);
+        into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '(' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        Token* t = create_token(TT_LEFT_BRACKET, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        accept(tn, TT_LEFT_BRACKET);
+        into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == ')' ) {
-        tn->beg = tn->pos;
-        tn->pos += 1;
-        Token* t = create_token(TT_RIGHT_BRACKET, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-        tn->state = TS_EMPTY;
+        skip(tn);
+        accept(tn, TT_RIGHT_BRACKET);
+        into(tn, TS_EMPTY);
         continue;
       }
 
@@ -184,22 +193,20 @@ Token* tokenize(const char* buffer, size_t len) {
           c == '9'
       ) {
         // 引き続き数値として処理する
-        tn->pos += 1;
+        gain(tn);
         continue;
       }
 
       // 数字でない何かが来たということは、
       // この時点で数値リテラルは終わったということ。
       // ということでトークンにしてしまう
-      Token* t = create_token(TT_NUM, tn->buffer, tn->beg, tn->pos - tn->beg);
-      tn->current->next = t;
-      tn->current = t;
+      accept(tn, TT_NUM);
 
       // 文字の読み込みはしてないのでposは移動させなくていい
-      tn->beg = tn->pos;
+      reset(tn);
 
       // トークンを読み込んだので行き先状態はTS_EMPTY
-      tn->state = TS_EMPTY;
+      into(tn, TS_EMPTY);
 
       continue;
     }
@@ -208,14 +215,10 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここでイコールがきたということは、
       // 同値判定のためのイコールだったということです
       if( c == '=' ) {
-        Token* t = create_token(TT_EQUAL, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-
-        tn->beg = tn->pos;
-        tn->pos += 1;
+        accept(tn, TT_EQUAL);
+        skip(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
-        tn->state = TS_EMPTY;
+        into(tn, TS_EMPTY);
         continue;
       }
 
@@ -231,14 +234,10 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここでイコールがきたということは、
       // 不等号だったということです
       if( c == '=' ) {
-        Token* t = create_token(TT_NOT_EQUAL, tn->buffer, tn->beg, tn->pos - tn->beg);
-        tn->current->next = t;
-        tn->current = t;
-
-        tn->beg = tn->pos;
-        tn->pos += 1;
+        accept(tn, TT_NOT_EQUAL);
+        skip(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
-        tn->state = TS_EMPTY;
+        into(tn, TS_EMPTY);
         continue;
       }
 
@@ -258,7 +257,7 @@ Token* tokenize(const char* buffer, size_t len) {
     return NULL;
   }
 
-  return root;
+  return tn->root;
 }
 
 // 指定されたtokenから先のtokenのメモリをすべて開放する
