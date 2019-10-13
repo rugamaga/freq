@@ -104,7 +104,7 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
     break;
   case ST_SUB:
     {
-      comment(g, "  ; ------------- Calculate ST_ADD\n");
+      comment(g, "  ; ------------- Calculate ST_SUB\n");
       const size_t lhs_reg = gen_load(g, lhs);
       const size_t rhs_reg = gen_load(g, rhs);
       const size_t sub_reg = gen_sub(g, lhs_reg, rhs_reg);
