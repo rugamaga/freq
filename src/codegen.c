@@ -61,6 +61,18 @@ static size_t gen_sub(CodeGen* g, size_t lhs, size_t rhs) {
   return reg;
 }
 
+static size_t gen_mul(CodeGen* g, size_t lhs, size_t rhs) {
+  const size_t reg = ++(g->index);
+  gen(g, "  %%%zu = mul i32 %%%zu, %%%zu\n", reg, lhs, rhs);
+  return reg;
+}
+
+static size_t gen_sdiv(CodeGen* g, size_t lhs, size_t rhs) {
+  const size_t reg = ++(g->index);
+  gen(g, "  %%%zu = sdiv i32 %%%zu, %%%zu\n", reg, lhs, rhs);
+  return reg;
+}
+
 static size_t gen_numeric_process(CodeGen* g, AST* ast) {
   if (ast->type == ST_NUM) {
     comment(g, "  ; Assign ST_NUM\n");
@@ -98,6 +110,26 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
       const size_t sub_reg = gen_sub(g, lhs_reg, rhs_reg);
       const size_t res_mem = gen_alloca(g);
       gen_store(g, sub_reg, res_mem);
+    }
+    break;
+  case ST_MUL:
+    {
+      comment(g, "  ; ------------- Calculate ST_MUL\n");
+      const size_t lhs_reg = gen_load(g, lhs);
+      const size_t rhs_reg = gen_load(g, rhs);
+      const size_t mul_reg = gen_mul(g, lhs_reg, rhs_reg);
+      const size_t res_mem = gen_alloca(g);
+      gen_store(g, mul_reg, res_mem);
+    }
+    break;
+  case ST_DIV:
+    {
+      comment(g, "  ; ------------- Calculate ST_DIV\n");
+      const size_t lhs_reg = gen_load(g, lhs);
+      const size_t rhs_reg = gen_load(g, rhs);
+      const size_t div_reg = gen_sdiv(g, lhs_reg, rhs_reg);
+      const size_t res_mem = gen_alloca(g);
+      gen_store(g, div_reg, res_mem);
     }
     break;
   }

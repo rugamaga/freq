@@ -5,6 +5,10 @@ typedef enum {
   TT_NUM,
   TT_PLUS,
   TT_MINUS,
+  TT_MUL,
+  TT_DIV,
+  TT_LEFT_BRACKET,
+  TT_RIGHT_BRACKET,
 } TokenType;
 
 typedef struct tToken {

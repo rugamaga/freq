@@ -27,18 +27,18 @@ static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs) {
   return node;
 }
 
+static AST* parse_expr(Token** current);
 static AST* parse_primary(Token** current) {
   Token* tok;
-  /*
   AST* node;
-  if( consume( current, TT_LEFT_PAREN ) ) {
-    AST* node = parse_expr();
-    if( consume( current, TT_RIGHT_PAREN ) ) {
+  if( consume( current, TT_LEFT_BRACKET ) ) {
+    AST* node = parse_expr( current );
+    if( consume( current, TT_RIGHT_BRACKET ) ) {
       return node;
     }
     return NULL;
   }
-  */
+
   if( (tok = consume( current, TT_NUM )) )
     return create_ast( ST_NUM, tok, NULL, NULL );
   return NULL;
@@ -59,14 +59,27 @@ static AST* parse_unary(Token** current) {
   return parse_primary( current );
 }
 
-static AST* parse_expr(Token** current) {
+static AST* parse_mul(Token** current) {
   AST* node = parse_unary(current);
   for( ; ; ) {
     Token* tok;
+    if( (tok = consume( current, TT_MUL )) )
+      node = create_ast( ST_MUL, tok, node, parse_unary(current) );
+    else if( (tok = consume( current, TT_DIV )) )
+      node = create_ast( ST_DIV, tok, node, parse_unary(current) );
+    else
+      return node;
+  }
+}
+
+static AST* parse_expr(Token** current) {
+  AST* node = parse_mul(current);
+  for( ; ; ) {
+    Token* tok;
     if( (tok = consume( current, TT_PLUS )) )
-      node = create_ast( ST_ADD, tok, node, parse_unary(current) );
+      node = create_ast( ST_ADD, tok, node, parse_mul(current) );
     else if( (tok = consume( current, TT_MINUS )) )
-      node = create_ast( ST_SUB, tok, node, parse_unary(current) );
+      node = create_ast( ST_SUB, tok, node, parse_mul(current) );
     else
       return node;
   }

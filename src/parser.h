@@ -6,6 +6,8 @@ typedef enum {
   ST_NUM,
   ST_ADD,
   ST_SUB,
+  ST_MUL,
+  ST_DIV,
 } SyntaxType;
 
 typedef struct tAST {

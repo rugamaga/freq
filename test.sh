@@ -18,6 +18,20 @@ try() {
   fi
 }
 
+try_except() {
+  input="$1"
+
+  echo "$input" | $TARGET $OPT > tmp.ll
+  lli tmp.ll &>/dev/null
+  actual=$?
+  if [ $actual != 0 ]; then
+    echo "$input return error code, correctly"
+  else
+    echo "$input should return error code, but got $actual"
+    exit 1
+  fi
+}
+
 try_file() {
   expected="$1"
   input="$2"
@@ -65,5 +79,29 @@ try "-10" "+-10"
 
 # --------- tests for file read
 try_file 20 "test/add.fq"
+
+# --------- tests for mul
+try 100 "10 * 10"
+try 1000 "10 * 10 * 10"
+try 200 "10 * (10 + 10)"
+try 110 "(10 * 10) + 10"
+try 1000 "10 * (10 * 10)"
+try 1000 "(10 * 10) * 10"
+try 0 "10 * 0"
+try 0 "0 * 10"
+try 0 "10 * -0"
+try 0 "-0 * 10"
+
+# --------- tests for div
+try 1 "10 / 10"
+try 1 "100 / 10 / 10" # it means, div is left-assoc...
+try 100 "100 / (10 / 10)"
+try 1 "(100 / 10) / 10"
+# In LLVM, how to catch this???
+try_except "10 / 0" # zero division.
+try 0 "0 / 10"
+# In LLVM, how to catch this???
+# try_except 0 "10 / -0" # zero division
+try 0 "-0 / 10"
 
 echo OK

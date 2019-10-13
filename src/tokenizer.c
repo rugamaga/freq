@@ -95,6 +95,46 @@ Token* tokenize(const char* buffer, size_t len) {
         continue;
       }
 
+      if( c == '*' ) {
+        beg = pos;
+        pos += 1;
+        Token* t = create_token(TT_MUL, buffer, beg, pos - beg);
+        current->next = t;
+        current = t;
+        state = TS_EMPTY;
+        continue;
+      }
+
+      if( c == '/' ) {
+        beg = pos;
+        pos += 1;
+        Token* t = create_token(TT_DIV, buffer, beg, pos - beg);
+        current->next = t;
+        current = t;
+        state = TS_EMPTY;
+        continue;
+      }
+
+      if( c == '(' ) {
+        beg = pos;
+        pos += 1;
+        Token* t = create_token(TT_LEFT_BRACKET, buffer, beg, pos - beg);
+        current->next = t;
+        current = t;
+        state = TS_EMPTY;
+        continue;
+      }
+
+      if( c == ')' ) {
+        beg = pos;
+        pos += 1;
+        Token* t = create_token(TT_RIGHT_BRACKET, buffer, beg, pos - beg);
+        current->next = t;
+        current = t;
+        state = TS_EMPTY;
+        continue;
+      }
+
       // TS_EMPTYでここまでの以外が来るのはまずいですよ！
       fprintf(stderr, "Tokenize中に予想外の文字(%zu文字目の'%c')が来てしまいました。\n", pos, c);
       exit(1);
