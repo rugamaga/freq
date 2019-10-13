@@ -114,10 +114,9 @@ void generate_code(CodeGen* g, AST* ast) {
   gen(g, "define i32 @main() nounwind {\n");
 
   const size_t num_proc_last = gen_numeric_process(g, ast);
-  const size_t result_reg = ++(g->index);
 
   gen(g, "  ; ------------- Output result\n");
-  gen(g, "  %%%zu = load i32, i32* %%%zu, align 4\n", result_reg, num_proc_last);
+  const size_t result_reg = gen_load(g, num_proc_last);
   gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", result_reg);
   gen(g, "\n");
 
