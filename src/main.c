@@ -70,14 +70,10 @@ int main(int argc, char **argv) {
   AST* ast = parse(token);
   if( isDebugMode ) print_ast(ast, 0);
 
-  // 一定のバッファまでコンパイル結果を許す
-  // これを超えるLLVM IRサイズは許さないことで話を単純化する
-  char* output;
-  output = (char*)malloc(sizeof(char) * OUTPUT_BUFFER_SIZE);
-
   // コード生成
-  generate_code(output, OUTPUT_BUFFER_SIZE, ast);
+  CodeGen* gen = create_codegen(OUTPUT_BUFFER_SIZE);
+  generate_code(gen, ast);
 
-  fprintf(outfile, "%s", output);
+  fprintf(outfile, "%s", gen->output);
   return 0;
 }

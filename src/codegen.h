@@ -2,4 +2,12 @@
 
 #include "parser.h"
 
-void generate_code(char* output, size_t len, AST* ast);
+typedef struct {
+  char const* output;
+  char* current;
+  size_t len;
+  size_t index;
+} CodeGen;
+
+CodeGen* create_codegen(size_t len);
+void generate_code(CodeGen* gen, AST* ast);
