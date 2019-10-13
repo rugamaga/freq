@@ -77,7 +77,7 @@ Token* tokenize(const char* buffer, size_t len) {
       }
 
       // TS_EMPTYでイコールが着たら、多分Equal。
-      if(c == '=') {
+      if( c == '=' ) {
         beg = pos;
         pos += 1;
         state = TS_EQUAL;
@@ -192,6 +192,12 @@ Token* tokenize(const char* buffer, size_t len) {
         Token* t = create_token(TT_EQUAL, buffer, beg, pos - beg);
         current->next = t;
         current = t;
+
+        beg = pos;
+        pos += 1;
+        // トークンを読み込んだので行き先状態はTS_EMPTY
+        state = TS_EMPTY;
+        continue;
       }
 
       // 取り扱えない文字なのでエラーを出して落とす
