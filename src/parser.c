@@ -59,7 +59,7 @@ static AST* parse_unary(Token** current) {
   return parse_primary( current );
 }
 
-static AST* parse_mul(Token** current) {
+static AST* parse_term(Token** current) {
   AST* node = parse_unary(current);
   for( ; ; ) {
     Token* tok;
@@ -73,13 +73,13 @@ static AST* parse_mul(Token** current) {
 }
 
 static AST* parse_expr(Token** current) {
-  AST* node = parse_mul(current);
+  AST* node = parse_term(current);
   for( ; ; ) {
     Token* tok;
     if( (tok = consume( current, TT_PLUS )) )
-      node = create_ast( ST_ADD, tok, node, parse_mul(current) );
+      node = create_ast( ST_ADD, tok, node, parse_term(current) );
     else if( (tok = consume( current, TT_MINUS )) )
-      node = create_ast( ST_SUB, tok, node, parse_mul(current) );
+      node = create_ast( ST_SUB, tok, node, parse_term(current) );
     else
       return node;
   }
