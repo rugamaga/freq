@@ -157,5 +157,6 @@ try 22 "10 + 1; 20 + 2"
 try 10 "let a = 10; a"
 try 11 "let a = 10; a + 1"
 try 7 "let a = 10; let b = 3; a - b"
+try 7 "let alpha = 10; let beta = 3; alpha - beta"
 
 echo OK
