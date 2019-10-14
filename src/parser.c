@@ -4,11 +4,26 @@
 #include "parser.h"
 #include "util.h"
 
-static Token* consume(Token** current, TokenType type) {
-  if( !(*current) ) return NULL;
-  if( (*current)->type != type ) return NULL;
-  Token* consumed = *current;
-  *current = (*current)->next;
+#define MAX_CODE_SIZE 10240
+
+typedef struct {
+  AST** code;
+  Token* root;
+  Token* current;
+} Parser;
+
+static Parser* create_parser(Token* root) {
+  Parser* parser = (Parser*)malloc(sizeof(Parser));
+  parser->code = (AST**)malloc(sizeof(AST*) * MAX_CODE_SIZE);
+  parser->current = parser->root = root;
+  return parser;
+}
+
+static Token* consume(Parser* parser, TokenType type) {
+  if( !(parser->current) ) return NULL;
+  if( parser->current->type != type ) return NULL;
+  Token* consumed = parser->current;
+  parser->current = parser->current->next;
   return consumed;
 }
 
@@ -27,102 +42,100 @@ static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs) {
   return node;
 }
 
-static AST* parse_expr(Token** current);
-static AST* parse_factor(Token** current) {
+static AST* parse_expr(Parser* parser);
+static AST* parse_factor(Parser* parser) {
   Token* tok;
   AST* node;
-  if( consume( current, TT_LEFT_BRACKET ) ) {
-    AST* node = parse_expr( current );
-    if( consume( current, TT_RIGHT_BRACKET ) ) {
+  if( consume( parser, TT_LEFT_BRACKET ) ) {
+    AST* node = parse_expr( parser );
+    if( consume( parser, TT_RIGHT_BRACKET ) ) {
       return node;
     }
     return NULL;
   }
 
-  if( (tok = consume( current, TT_NUM )) )
+  if( (tok = consume( parser, TT_NUM )) )
     return create_ast( ST_NUM, tok, NULL, NULL );
   return NULL;
 }
 
-static AST* parse_unary(Token** current) {
+static AST* parse_unary(Parser* parser) {
   Token* tok;
-  if( (tok = consume( current, TT_PLUS )) )
-    return parse_unary( current );
+  if( (tok = consume( parser, TT_PLUS )) )
+    return parse_unary( parser );
 
-  if( (tok = consume( current, TT_MINUS )) ) {
+  if( (tok = consume( parser, TT_MINUS )) ) {
     // ここはシンタックスシュガーとして生成されるので
     // 後で解釈されるときのためにダミーのトークンを登録しておく
     Token* dummy = create_token(TT_NUM, "0", 0, 1);
-    return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_unary( current ) );
+    return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_unary( parser ) );
   }
 
-  return parse_factor( current );
+  return parse_factor( parser );
 }
 
-static AST* parse_term(Token** current) {
-  AST* node = parse_unary(current);
+static AST* parse_term(Parser* parser) {
+  AST* node = parse_unary(parser);
   for( ; ; ) {
     Token* tok;
-    if( (tok = consume( current, TT_MUL )) )
-      node = create_ast( ST_MUL, tok, node, parse_unary(current) );
-    else if( (tok = consume( current, TT_DIV )) )
-      node = create_ast( ST_DIV, tok, node, parse_unary(current) );
+    if( (tok = consume( parser, TT_MUL )) )
+      node = create_ast( ST_MUL, tok, node, parse_unary(parser) );
+    else if( (tok = consume( parser, TT_DIV )) )
+      node = create_ast( ST_DIV, tok, node, parse_unary(parser) );
     else
       return node;
   }
 }
 
-static AST* parse_expr(Token** current) {
-  AST* node = parse_term(current);
+static AST* parse_expr(Parser* parser) {
+  AST* node = parse_term(parser);
   for( ; ; ) {
     Token* tok;
-    if( (tok = consume( current, TT_PLUS )) )
-      node = create_ast( ST_ADD, tok, node, parse_term(current) );
-    else if( (tok = consume( current, TT_MINUS )) )
-      node = create_ast( ST_SUB, tok, node, parse_term(current) );
+    if( (tok = consume( parser, TT_PLUS )) )
+      node = create_ast( ST_ADD, tok, node, parse_term(parser) );
+    else if( (tok = consume( parser, TT_MINUS )) )
+      node = create_ast( ST_SUB, tok, node, parse_term(parser) );
     else
       return node;
   }
 }
 
 
-static AST* parse_rational(Token** current) {
-  AST* node = parse_expr(current);
+static AST* parse_rational(Parser* parser) {
+  AST* node = parse_expr(parser);
   for( ; ; ) {
     Token* tok;
-    if( (tok = consume( current, TT_LT )) )
-      node = create_ast( ST_LT, tok, node, parse_expr(current) );
-    else if( (tok = consume( current, TT_LTEQ )) )
-      node = create_ast( ST_LTEQ, tok, node, parse_expr(current) );
-    else if( (tok = consume( current, TT_GT )) )
-      node = create_ast( ST_GT, tok, node, parse_expr(current) );
-    else if( (tok = consume( current, TT_GTEQ )) )
-      node = create_ast( ST_GTEQ, tok, node, parse_expr(current) );
+    if( (tok = consume( parser, TT_LT )) )
+      node = create_ast( ST_LT, tok, node, parse_expr(parser) );
+    else if( (tok = consume( parser, TT_LTEQ )) )
+      node = create_ast( ST_LTEQ, tok, node, parse_expr(parser) );
+    else if( (tok = consume( parser, TT_GT )) )
+      node = create_ast( ST_GT, tok, node, parse_expr(parser) );
+    else if( (tok = consume( parser, TT_GTEQ )) )
+      node = create_ast( ST_GTEQ, tok, node, parse_expr(parser) );
     else
       return node;
   }
 }
 
-static AST* parse_equality(Token** current) {
-  AST* node = parse_rational(current);
+static AST* parse_equality(Parser* parser) {
+  AST* node = parse_rational(parser);
   for( ; ; ) {
     Token* tok;
-    if( (tok = consume( current, TT_EQUAL )) )
-      node = create_ast( ST_EQUAL, tok, node, parse_rational(current) );
-    else if( (tok = consume( current, TT_NOT_EQUAL )) )
-      node = create_ast( ST_NOT_EQUAL, tok, node, parse_rational(current) );
+    if( (tok = consume( parser, TT_EQUAL )) )
+      node = create_ast( ST_EQUAL, tok, node, parse_rational(parser) );
+    else if( (tok = consume( parser, TT_NOT_EQUAL )) )
+      node = create_ast( ST_NOT_EQUAL, tok, node, parse_rational(parser) );
     else
       return node;
   }
 }
 
 AST* parse(Token* token) {
-  // pointerへのpointerを取ることで
-  // この後の内部処理を行えるようにする
-  Token** current = &token;
-  if( !consume( current, TT_ROOT ) )
+  Parser* parser = create_parser(token);
+  if( !consume( parser, TT_ROOT ) )
     return NULL;
-  return parse_equality(current);
+  return parse_equality(parser);
 }
 
 void print_ast(AST* ast, size_t level) {
