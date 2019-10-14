@@ -35,6 +35,10 @@ static size_t gen_alloca(CodeGen* g) {
   return mem;
 }
 
+static void gen_named_alloca(CodeGen* g, Token* token) {
+  gen(g, "  %%%.*s = alloca i32, align 4\n", token->len, token->buffer + token->pos);
+}
+
 static size_t gen_zext(CodeGen* g, const char* from, const char* to, size_t before) {
   const size_t after = ++(g->index);
   gen(g, "  %%%zu = zext %s %%%zu to %s\n", after, from, before, to);
@@ -52,6 +56,12 @@ static void gen_store_immediate(CodeGen* g, long long imm, size_t mem) {
 static size_t gen_load(CodeGen* g, size_t src) {
   const size_t dst = ++(g->index);
   gen(g, "  %%%zu = load i32, i32* %%%zu, align 4\n", dst, src);
+  return dst;
+}
+
+static size_t gen_named_load(CodeGen* g, Token* token) {
+  const size_t dst = ++(g->index);
+  gen(g, "  %%%zu = load i32, i32* %%%.*s, align 4\n", dst, token->len, token->buffer + token->pos);
   return dst;
 }
 
@@ -85,138 +95,124 @@ static size_t gen_cmp(CodeGen* g, const char* cmp, size_t lhs, size_t rhs) {
   return reg;
 }
 
+static void gen_named_store(CodeGen* g, Token* lvar, size_t reg) {
+  gen(g, "  store i32 %%%zu, i32* %%%.*s, align 4\n", reg, lvar->len, lvar->buffer + lvar->pos);
+}
+
 static size_t gen_numeric_process(CodeGen* g, AST* ast) {
-  if (ast->type == ST_NUM) {
-    comment(g, "  ; Assign ST_NUM\n");
-    const size_t mem = gen_alloca(g);
-    gen_store_immediate(g, ast->val, mem);
-    gen(g, "\n");
-    return mem;
+  switch( ast->type ) {
+    case ST_NUM: {
+      comment(g, "  ; Assign ST_NUM\n");
+      const size_t mem = gen_alloca(g);
+      gen_store_immediate(g, ast->val, mem);
+      const size_t reg = gen_load(g, mem);
+      return reg;
+    }
+    break;
+    case ST_LET: {
+      comment(g, "  ; Assign ST_LET\n");
+      gen_named_alloca(g, ast->lhs->token);
+      if( ast->rhs ) {
+        const size_t num_reg = gen_numeric_process(g, ast->rhs);
+        gen_named_store(g, ast->lhs->token, num_reg);
+      }
+      const size_t reg = gen_named_load(g, ast->lhs->token);
+      return reg;
+    }
+    break;
+    case ST_VAR:
+      {
+        comment(g, "  ; Load ST_VAR\n");
+        const size_t reg = gen_named_load(g, ast->token);
+        return reg;
+      }
+    break;
+    default:
+      // 特にすることない
+    break;
   }
 
   comment(g, "  ; ------------- Calculate LHS\n");
-  const size_t lhs = gen_numeric_process(g, ast->lhs);
+  const size_t lhs_reg = gen_numeric_process(g, ast->lhs);
 
   comment(g, "  ; ------------- Calculate RHS\n");
-  const size_t rhs = gen_numeric_process(g, ast->rhs);
+  const size_t rhs_reg = gen_numeric_process(g, ast->rhs);
 
   switch( ast->type ) {
-  case ST_NUM:
-    // 処理済み
-    break;
   case ST_ADD:
     {
       comment(g, "  ; ------------- Calculate ST_ADD\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
-      const size_t add_reg = gen_add(g, lhs_reg, rhs_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, add_reg, res_mem);
+      return gen_add(g, lhs_reg, rhs_reg);
     }
     break;
   case ST_SUB:
     {
       comment(g, "  ; ------------- Calculate ST_SUB\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
-      const size_t sub_reg = gen_sub(g, lhs_reg, rhs_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, sub_reg, res_mem);
+      return gen_sub(g, lhs_reg, rhs_reg);
     }
     break;
   case ST_MUL:
     {
       comment(g, "  ; ------------- Calculate ST_MUL\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
-      const size_t mul_reg = gen_mul(g, lhs_reg, rhs_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, mul_reg, res_mem);
+      return gen_mul(g, lhs_reg, rhs_reg);
     }
     break;
   case ST_DIV:
     {
       comment(g, "  ; ------------- Calculate ST_DIV\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
-      const size_t div_reg = gen_sdiv(g, lhs_reg, rhs_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, div_reg, res_mem);
+      return gen_sdiv(g, lhs_reg, rhs_reg);
     }
     break;
   case ST_EQUAL:
     {
       comment(g, "  ; ------------- Calculate ST_EQUAL\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "eq", lhs_reg, rhs_reg);
-      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, zext_reg, res_mem);
+      return gen_zext(g, "i1", "i32", cmp_reg);
     }
     break;
   case ST_NOT_EQUAL:
     {
       comment(g, "  ; ------------- Calculate ST_NOT_EQUAL\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "ne", lhs_reg, rhs_reg);
-      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, zext_reg, res_mem);
+      return gen_zext(g, "i1", "i32", cmp_reg);
     }
     break;
   case ST_LT:
     {
       comment(g, "  ; ------------- Calculate ST_LT\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "slt", lhs_reg, rhs_reg);
-      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, zext_reg, res_mem);
+      return gen_zext(g, "i1", "i32", cmp_reg);
     }
     break;
   case ST_LTEQ:
     {
       comment(g, "  ; ------------- Calculate ST_LTEQ\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "sle", lhs_reg, rhs_reg);
-      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, zext_reg, res_mem);
+      return gen_zext(g, "i1", "i32", cmp_reg);
     }
     break;
   case ST_GT:
     {
       comment(g, "  ; ------------- Calculate ST_GT\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "sgt", lhs_reg, rhs_reg);
-      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, zext_reg, res_mem);
+      return gen_zext(g, "i1", "i32", cmp_reg);
     }
     break;
   case ST_GTEQ:
     {
       comment(g, "  ; ------------- Calculate ST_GTEQ\n");
-      const size_t lhs_reg = gen_load(g, lhs);
-      const size_t rhs_reg = gen_load(g, rhs);
       const size_t cmp_reg = gen_cmp(g, "sge", lhs_reg, rhs_reg);
-      const size_t zext_reg = gen_zext(g, "i1", "i32", cmp_reg);
-      const size_t res_mem = gen_alloca(g);
-      gen_store(g, zext_reg, res_mem);
+      return gen_zext(g, "i1", "i32", cmp_reg);
     }
     break;
+  default:
+    return g->index;
   }
 
-  gen(g, "\n");
   return g->index;
 }
 
-void generate_code(CodeGen* g, AST* ast) {
+void generate_code(CodeGen* g, AST** ast) {
   gen(g, "%%FILE = type opaque\n");
   gen(g, "@__stdinp = external global %%FILE*, align 8\n");
   gen(g, "@__stdoutp = external global %%FILE*, align 8\n");
@@ -233,10 +229,12 @@ void generate_code(CodeGen* g, AST* ast) {
 
   gen(g, "define i32 @main() nounwind {\n");
 
-  const size_t num_proc_last = gen_numeric_process(g, ast);
+  size_t result_reg;
+  for( AST** current = ast; *current; ++current ) {
+    result_reg = gen_numeric_process(g, *current);
+  }
 
   comment(g, "  ; ------------- Output result\n");
-  const size_t result_reg = gen_load(g, num_proc_last);
   gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", result_reg);
   gen(g, "\n");
 

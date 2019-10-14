@@ -150,9 +150,12 @@ try 0 "10 >= 100"
 try 1 "100 >= 10"
 try 1 "10 >= 10"
 
+# --------- tests for stmts
+try 22 "10 + 1; 20 + 2"
+
 # --------- tests for variables
-# try 10 "a = 10; a"
-# try 11 "a = 10; a + 1"
-# try 7 "a = 10; b = 3; a - b"
+try 10 "let a = 10; a"
+try 11 "let a = 10; a + 1"
+try 7 "let a = 10; let b = 3; a - b"
 
 echo OK

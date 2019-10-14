@@ -68,12 +68,15 @@ int main(int argc, char **argv) {
   if( debug ) print_tokens(token);
 
   // TokenをASTに変換
-  AST* ast = parse(token);
-  if( debug ) print_ast(ast, 0);
+  Parser* parser = parse(token);
+  if( debug ) {
+    for( AST** node = parser->code; *node; ++node )
+      print_ast(*node, 0);
+  }
 
   // コード生成
   CodeGen* gen = create_codegen(outfile, debug);
-  generate_code(gen, ast);
+  generate_code(gen, parser->code);
 
   return 0;
 }

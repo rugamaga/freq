@@ -1,13 +1,18 @@
 #pragma once
 
 typedef enum {
-  TT_ROOT,
-  TT_EOF,
+  // メタなtoken
+  TT_ROOT, // ROOTトークン。tokenizerの実装を簡単にするのに最初に必ず入っている
+  TT_EOF,  // EOFトークン。Parserの実装を簡単にするために最後にかならず入っている
+  TT_SKIP, // SKIPされたトークン。実際には発生しないがtokenizerが内部で使う
+
+  // メタなtoken
   TT_NUM,
   TT_PLUS,
   TT_MINUS,
   TT_MUL,
   TT_DIV,
+  TT_LET,
   TT_LEFT_BRACKET,
   TT_RIGHT_BRACKET,
   TT_SEMICOLON,

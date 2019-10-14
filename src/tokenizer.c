@@ -12,6 +12,9 @@ typedef enum {
   TS_LT,
   TS_GT,
   TS_IDENT,
+  TS_LET_0,
+  TS_LET_1,
+  TS_LET_2,
 } TokenizerState;
 
 Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) {
@@ -82,9 +85,11 @@ Token* tokenize(const char* buffer, size_t len) {
       // TS_EMPTYでバッファの終りが来るのが正常な終了。
       // なので読み取れたトークン情報のルートを返して終了
       if( c == '\0' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_EOF);
+        reset(tn);
+        // 終了状態は導入してないけどあってもいいかもね
+        // into(tn, TS_END);
         break;
       }
 
@@ -93,27 +98,30 @@ Token* tokenize(const char* buffer, size_t len) {
       // つまるところ「連続でスペースだったね…」ということ。
       // まだ何もトークンがないので読み飛ばす以外にすることはない
       if( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) {
-        reset(tn);
         gain(tn);
+        // TODO: あえて受け取っておいて実際にはacceptしないみたいな作りにすると統一感出る？
+        // accept(tn, TT_SKIP);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
+      // 'l'が来たならTT_LETっぽさがある
+      if( c == 'l' ) {
+        gain(tn);
+        into(tn, TS_LET_0);
+        continue;
+      }
+
+      if( 'a' <= c && c <= 'z' ) {
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+
       // TS_EMPTYで数値が始まったら、それは数値だ。
-      if(
-          c == '0' ||
-          c == '1' ||
-          c == '2' ||
-          c == '3' ||
-          c == '4' ||
-          c == '5' ||
-          c == '6' ||
-          c == '7' ||
-          c == '8' ||
-          c == '9'
-      ) {
+      if( '0' <= c && c <= '9' ) {
         // 1文字読んで数値解析モードに飛ぶ
-        reset(tn);
         gain(tn);
         into(tn, TS_NUM);
         continue;
@@ -121,7 +129,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // TS_EMPTYでイコールが着たら、多分Equal。
       if( c == '=' ) {
-        reset(tn);
         gain(tn);
         into(tn, TS_EQUAL);
         continue;
@@ -129,7 +136,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // TS_EMPTYでノットが着たら、多分Not。
       if( c == '!' ) {
-        reset(tn);
         gain(tn);
         into(tn, TS_NOT);
         continue;
@@ -137,7 +143,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // TS_EMPTYでLTが着たら、多分LT
       if( c == '<' ) {
-        reset(tn);
         gain(tn);
         into(tn, TS_LT);
         continue;
@@ -145,72 +150,64 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // TS_EMPTYでLTが着たら、多分LT
       if( c == '>' ) {
-        reset(tn);
         gain(tn);
         into(tn, TS_GT);
         continue;
       }
 
       if( c == '+' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_PLUS);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '-' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_MINUS);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '*' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_MUL);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '/' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_DIV);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == '(' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_LEFT_BRACKET);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == ')' ) {
-        reset(tn);
         gain(tn);
         accept(tn, TT_RIGHT_BRACKET);
+        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
 
       if( c == ';' ) {
-        reset(tn);
         gain(tn);
-        accept(tn, TT_SEMICOLON );
+        accept(tn, TT_SEMICOLON);
+        reset(tn);
         into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( 'a' <= c && c <= 'z' ) {
-        reset(tn);
-        gain(tn);
-        into(tn, TS_IDENT);
         continue;
       }
 
@@ -219,23 +216,83 @@ Token* tokenize(const char* buffer, size_t len) {
       exit(1);
     }
 
+    if( tn->state == TS_LET_0 ) {
+      // 'e'が来るならlet節っぽさが増す
+      if( c == 'e' ) {
+        gain(tn);
+        into(tn, TS_LET_1);
+        continue;
+      }
+
+      if(
+          ('a' <= c && c <= 'z') ||
+          ('0' <= c && c <= '9')
+      ) {
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+
+      // それ以外の文字が来たので打ち切り
+      accept(tn, TT_IDENT);
+      reset(tn);
+      into(tn, TS_EMPTY);
+    }
+
+    if( tn->state == TS_LET_1 ) {
+      // 't'が来るならlet節っぽさが更に増す
+      if( c == 't' ) {
+        gain(tn);
+        into(tn, TS_LET_2);
+        continue;
+      }
+
+      // そうじゃないならIDENTだったんだよ。
+      if(
+          ('a' <= c && c <= 'z') ||
+          ('0' <= c && c <= '9')
+      ) {
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+
+      // それら以外なら
+      // ここまでIDENTを処理していて
+      // そのIDENTが今終わったのだ
+      accept(tn, TT_IDENT);
+      reset(tn);
+      into(tn, TS_EMPTY);
+    }
+
+    if( tn->state == TS_LET_2 ) {
+      // ident的な文字が来てしまうなら
+      // 実はletじゃなくてidentだったので
+      // そのままidentとしてがんばってもらう
+      if(
+          ('a' <= c && c <= 'z') ||
+          ('0' <= c && c <= '9')
+      ) {
+        reset(tn);
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+
+      // それ以外の文字が来たのでついにletであることが判明！
+      accept(tn, TT_LET);
+      reset(tn);
+      into(tn, TS_EMPTY);
+      continue;
+    }
+
     if( tn->state == TS_NUM ) {
       // 数字以外の文字が来たってことは、ここまでが数値リテラルだったってことでしょ？
       // TS_EMPTYで数値が始まったら、それは数値だ。
-      if(
-          c == '0' ||
-          c == '1' ||
-          c == '2' ||
-          c == '3' ||
-          c == '4' ||
-          c == '5' ||
-          c == '6' ||
-          c == '7' ||
-          c == '8' ||
-          c == '9'
-      ) {
+      if( '0' <= c && c <= '9' ) {
         // 引き続き数値として処理する
         gain(tn);
+        into(tn, TS_NUM);
         continue;
       }
 
@@ -257,9 +314,9 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここでイコールがきたということは、
       // 同値判定のためのイコールだったということです
       if( c == '=' ) {
+        gain(tn);
         accept(tn, TT_EQUAL);
         reset(tn);
-        gain(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -276,9 +333,9 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここでイコールがきたということは、
       // 不等号だったということです
       if( c == '=' ) {
+        gain(tn);
         accept(tn, TT_NOT_EQUAL);
         reset(tn);
-        gain(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -296,9 +353,9 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここでイコールがきたということは、
       // LTEQだったということです
       if( c == '=' ) {
+        gain(tn);
         accept(tn, TT_LTEQ);
         reset(tn);
-        gain(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -317,9 +374,9 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここでイコールがきたということは、
       // GTEQだったということです
       if( c == '=' ) {
+        gain(tn);
         accept(tn, TT_GTEQ);
         reset(tn);
-        gain(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -335,14 +392,12 @@ Token* tokenize(const char* buffer, size_t len) {
     }
 
     if( tn->state == TS_IDENT ) {
-      // 引き続き文字がきているようならIDENT
-      if( 'a' <= c && c <= 'z' ) {
-        gain(tn);
-        into(tn, TS_IDENT);
-        continue;
-      }
-      // 2文字目以降は数字も許す
-      if( '0' <= c && c <= '9' ) {
+      if(
+        // 引き続き文字がきているようならIDENT
+        ('a' <= c && c <= 'z') ||
+        // 2文字目以降は数字も許す
+        ('0' <= c && c <= '9')
+      ) {
         gain(tn);
         into(tn, TS_IDENT);
         continue;
@@ -382,6 +437,6 @@ void print_tokens(Token* token) {
     for( size_t i = t->pos; i < t->pos + t->len; ++i ) {
       fprintf(stderr, "%c", t->buffer[i]);
     }
-    fprintf(stderr, ")\n");
+    fprintf(stderr, "\n");
   }
 }

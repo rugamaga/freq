@@ -6,12 +6,6 @@
 
 #define MAX_CODE_SIZE 10240
 
-typedef struct {
-  AST** code;
-  Token* root;
-  Token* current;
-} Parser;
-
 static Parser* create_parser(Token* root) {
   Parser* parser = (Parser*)malloc(sizeof(Parser));
   parser->code = (AST**)malloc(sizeof(AST*) * MAX_CODE_SIZE);
@@ -42,6 +36,13 @@ static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs) {
   return node;
 }
 
+static AST* parse_lvar(Parser* parser) {
+  Token* tok;
+  if( (tok = consume( parser, TT_IDENT )) )
+    return create_ast(ST_VAR, tok, NULL, NULL );
+  return NULL;
+}
+
 static AST* parse_expr(Parser* parser);
 static AST* parse_factor(Parser* parser) {
   Token* tok;
@@ -56,6 +57,8 @@ static AST* parse_factor(Parser* parser) {
 
   if( (tok = consume( parser, TT_NUM )) )
     return create_ast( ST_NUM, tok, NULL, NULL );
+  if( (tok = consume( parser, TT_IDENT )) )
+    return create_ast( ST_VAR, tok, NULL, NULL );
   return NULL;
 }
 
@@ -131,11 +134,52 @@ static AST* parse_equality(Parser* parser) {
   }
 }
 
-AST* parse(Token* token) {
+static AST* parse_assign(Parser* parser) {
+  AST* node = parse_equality(parser);
+  Token* tok;
+  if( (tok = consume(parser, TT_ASSIGN)) ) {
+    return create_ast( ST_ASSIGN, tok, node, parse_assign(parser) );
+  } else {
+    return node;
+  }
+}
+
+static AST* parse_let(Parser* parser) {
+  Token* tok;
+  if( (tok = consume(parser, TT_LET)) ) {
+    AST* lhs = parse_lvar(parser);
+    AST* rhs = NULL;
+    Token* assign;
+    if( (assign = consume(parser, TT_ASSIGN)) )
+      rhs = parse_assign(parser);
+    return create_ast( ST_LET, tok, lhs, rhs );
+  } else {
+    return parse_assign(parser);
+  }
+}
+
+static AST* parse_stmt(Parser* parser) {
+  AST* node = parse_let(parser);
+  consume(parser, TT_SEMICOLON);
+  return node;
+}
+
+Parser* parse(Token* token) {
   Parser* parser = create_parser(token);
+
+  // ROOTから始まる
   if( !consume( parser, TT_ROOT ) )
     return NULL;
-  return parse_equality(parser);
+
+  // stmtをすべて読み込む
+  size_t i = 0;
+  while( !consume(parser, TT_EOF) )
+    parser->code[i++] = parse_stmt(parser);
+
+  // NULLで終端しておくことで後続で処理できるようにする
+  parser->code[i] = NULL;
+
+  return parser;
 }
 
 void print_ast(AST* ast, size_t level) {

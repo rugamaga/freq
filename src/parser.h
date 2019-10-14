@@ -8,6 +8,9 @@ typedef enum {
   ST_SUB,
   ST_MUL,
   ST_DIV,
+  ST_LET,
+  ST_ASSIGN,
+  ST_VAR,
   ST_EQUAL,
   ST_NOT_EQUAL,
   ST_LT,
@@ -24,6 +27,12 @@ typedef struct tAST {
   struct tAST* rhs;
 } AST;
 
-AST* parse(Token* token);
+typedef struct {
+  AST** code;
+  Token* root;
+  Token* current;
+} Parser;
+
+Parser* parse(Token* token);
 
 void print_ast(AST* ast, size_t level);
