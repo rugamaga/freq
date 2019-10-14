@@ -2,6 +2,7 @@
 
 typedef enum {
   TT_ROOT,
+  TT_EOF,
   TT_NUM,
   TT_PLUS,
   TT_MINUS,
@@ -9,12 +10,15 @@ typedef enum {
   TT_DIV,
   TT_LEFT_BRACKET,
   TT_RIGHT_BRACKET,
+  TT_SEMICOLON,
+  TT_ASSIGN,
   TT_EQUAL,
   TT_NOT_EQUAL,
   TT_LT,
   TT_LTEQ,
   TT_GT,
   TT_GTEQ,
+  TT_IDENT,
 } TokenType;
 
 typedef struct tToken {

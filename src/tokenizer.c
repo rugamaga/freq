@@ -11,6 +11,7 @@ typedef enum {
   TS_NOT,
   TS_LT,
   TS_GT,
+  TS_IDENT,
 } TokenizerState;
 
 Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) {
@@ -81,6 +82,9 @@ Token* tokenize(const char* buffer, size_t len) {
       // TS_EMPTYでバッファの終りが来るのが正常な終了。
       // なので読み取れたトークン情報のルートを返して終了
       if( c == '\0' ) {
+        reset(tn);
+        gain(tn);
+        accept(tn, TT_EOF);
         break;
       }
 
@@ -195,6 +199,21 @@ Token* tokenize(const char* buffer, size_t len) {
         continue;
       }
 
+      if( c == ';' ) {
+        reset(tn);
+        gain(tn);
+        accept(tn, TT_SEMICOLON );
+        into(tn, TS_EMPTY);
+        continue;
+      }
+
+      if( 'a' <= c && c <= 'z' ) {
+        reset(tn);
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+
       // TS_EMPTYでここまでの以外が来るのはまずいですよ！
       fprintf(stderr, "Tokenize中に予想外の文字(%zu文字目の'%c')が来てしまいました。\n", tn->pos, c);
       exit(1);
@@ -246,12 +265,11 @@ Token* tokenize(const char* buffer, size_t len) {
         continue;
       }
 
-      // 取り扱えない文字なのでエラーを出して落とす
-      fprintf(stderr, "Tokenize中に予想外の文字(%zu文字目の'%c')が着てしまいました。\n", tn->pos, c);
-
-      // メモリ解放は頑張らない(D言語方式)
-      // free_token(current);
-      return NULL;
+      // そうでにないなら、これは代入演算子なのでは？
+      accept(tn, TT_ASSIGN);
+      reset(tn);
+      into(tn, TS_EMPTY);
+      continue;
     }
 
     if( tn->state == TS_NOT ) {
@@ -313,6 +331,27 @@ Token* tokenize(const char* buffer, size_t len) {
       reset(tn);
       into(tn, TS_EMPTY);
 
+      continue;
+    }
+
+    if( tn->state == TS_IDENT ) {
+      // 引き続き文字がきているようならIDENT
+      if( 'a' <= c && c <= 'z' ) {
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+      // 2文字目以降は数字も許す
+      if( '0' <= c && c <= '9' ) {
+        gain(tn);
+        into(tn, TS_IDENT);
+        continue;
+      }
+
+      // それ以外の文字が来たので打ち切り
+      accept(tn, TT_IDENT);
+      reset(tn);
+      into(tn, TS_EMPTY);
       continue;
     }
 
