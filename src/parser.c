@@ -159,9 +159,20 @@ static AST* parse_let(Parser* parser) {
 }
 
 static AST* parse_stmt(Parser* parser) {
-  AST* node = parse_let(parser);
-  consume(parser, TT_SEMICOLON);
-  return node;
+  Token* tok;
+  if( (tok = consume(parser, TT_LET)) ) {
+    AST* lhs = parse_lvar(parser);
+    AST* rhs = NULL;
+    Token* assign;
+    if( (assign = consume(parser, TT_ASSIGN)) )
+      rhs = parse_assign(parser);
+    return create_ast( ST_LET, tok, lhs, rhs );
+  } else if( (tok = consume(parser, TT_RET) ) ){
+    AST* node = parse_assign(parser);
+    return create_ast( ST_RET, tok, node, NULL );
+  } else {
+    return parse_assign(parser);
+  }
 }
 
 Parser* parse(Token* token) {
@@ -173,8 +184,10 @@ Parser* parse(Token* token) {
 
   // stmtをすべて読み込む
   size_t i = 0;
-  while( !consume(parser, TT_EOF) )
+  while( !consume(parser, TT_EOF) ) {
     parser->code[i++] = parse_stmt(parser);
+    consume(parser, TT_SEMICOLON);
+  }
 
   // NULLで終端しておくことで後続で処理できるようにする
   parser->code[i] = NULL;

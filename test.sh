@@ -160,4 +160,9 @@ try 7 "let a = 10; let b = 3; a - b"
 try 7 "let alpha = 10; let beta = 3; alpha - beta"
 try 7 "let a0 = 10; let a1 = 3; a0 - a1"
 
+# --------- tests for ret
+try 10 "ret 10"
+try 10 "ret 10; 20"
+try 10 "ret 10; ret 20"
+
 echo OK

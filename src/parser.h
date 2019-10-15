@@ -9,6 +9,7 @@ typedef enum {
   ST_MUL,
   ST_DIV,
   ST_LET,
+  ST_RET,
   ST_ASSIGN,
   ST_VAR,
   ST_EQUAL,

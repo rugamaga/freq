@@ -14,6 +14,7 @@ typedef enum {
   TT_MUL,
   TT_DIV,
   TT_LET,
+  TT_RET,
   TT_LEFT_BRACKET,
   TT_RIGHT_BRACKET,
   TT_SEMICOLON,

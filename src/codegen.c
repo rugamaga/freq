@@ -120,12 +120,21 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
       return reg;
     }
     break;
-    case ST_VAR:
-      {
-        comment(g, "  ; Load ST_VAR\n");
-        const size_t reg = gen_named_load(g, ast->token);
-        return reg;
-      }
+    case ST_VAR: {
+      comment(g, "  ; Load ST_VAR\n");
+      const size_t reg = gen_named_load(g, ast->token);
+      return reg;
+    }
+    break;
+    case ST_RET: {
+      comment(g, "  ; Load ST_RET\n");
+      const size_t reg = gen_numeric_process(g, ast->lhs);
+      // TODO: after implement function, delete it.
+      g->index += 2;
+      gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", reg);
+      gen(g, "  ret i32 %%%zu\n", reg);
+      return reg;
+    }
     break;
     default:
       // 特にすることない
