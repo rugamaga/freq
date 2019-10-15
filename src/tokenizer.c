@@ -20,6 +20,9 @@ typedef enum {
   TS_RET_0,
   TS_RET_1,
   TS_RET_2,
+  TS_FUN_0,
+  TS_FUN_1,
+  TS_FUN_2,
 
   TS_SIZE
 } TokenizerState;
@@ -96,6 +99,9 @@ typedef enum {
   IS_E,
   IS_T,
   IS_R,
+  IS_F,
+  IS_U,
+  IS_N,
   IS_EQUAL,
   IS_BANG,
   IS_LT,
@@ -124,6 +130,9 @@ void check_conds(bool* conds, char c) {
   conds[IS_R]             = ('r' == c);
   // conds[IS_E]             = ('e' == c);
   // conds[IS_T]             = ('t' == c);
+  conds[IS_F]             = ('f' == c);
+  conds[IS_U]             = ('u' == c);
+  conds[IS_N]             = ('n' == c);
   conds[IS_EQUAL]         = ('=' == c);
   conds[IS_BANG]          = ('!' == c);
   conds[IS_LT]            = ('<' == c);
@@ -160,6 +169,7 @@ static const Action ts_empty[] = {
   { IS_SPACE, 1, TT_SKIP, TS_EMPTY, false },
   { IS_L, 1, TT_CONT, TS_LET_0, false },
   { IS_R, 1, TT_CONT, TS_RET_0, false },
+  { IS_F, 1, TT_CONT, TS_FUN_0, false },
   { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
   { IS_DIGIT, 1, TT_CONT, TS_NUM, false },
   { IS_EQUAL, 1, TT_CONT, TS_EQUAL, false },
@@ -235,6 +245,23 @@ static const Action ts_ret_2[] = {
   { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
   { IS_DEFAULT, 0, TT_RET, TS_EMPTY, false },
 };
+static const Action ts_fun_0[] = {
+  { IS_E, 1, TT_CONT, TS_FUN_1, false },
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
+};
+static const Action ts_fun_1[] = {
+  { IS_T, 1, TT_CONT, TS_FUN_2, false },
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
+};
+static const Action ts_fun_2[] = {
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_FUN, TS_EMPTY, false },
+};
 
 void setup_action_table(const Action** actions) {
   actions[TS_END] = ts_end;
@@ -251,6 +278,9 @@ void setup_action_table(const Action** actions) {
   actions[TS_RET_0] = ts_ret_0;
   actions[TS_RET_1] = ts_ret_1;
   actions[TS_RET_2] = ts_ret_2;
+  actions[TS_FUN_0] = ts_fun_0;
+  actions[TS_FUN_1] = ts_fun_1;
+  actions[TS_FUN_2] = ts_fun_2;
 }
 
 Token* tokenize(const char* buffer, size_t len) {
