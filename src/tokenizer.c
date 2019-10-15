@@ -5,6 +5,7 @@
 #include "util.h"
 
 typedef enum {
+  TS_END,
   TS_EMPTY,
   TS_NUM,
   TS_EQUAL,
@@ -65,6 +66,8 @@ static void gain(Tokenizer* tn) {
 }
 
 static void accept(Tokenizer* tn, TokenType type) {
+  // TT_SKIPのときは特別に実際にはトークンは記録しない
+  if( type == TT_SKIP ) return;
   Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
   tn->current->next = t;
   tn->current = t;
@@ -77,7 +80,10 @@ static void into(Tokenizer* tn, TokenizerState state) {
 Token* tokenize(const char* buffer, size_t len) {
   Tokenizer* tn = create_tokenizer(buffer, len);
 
-  while( tn->pos < tn->len ) {
+  while(
+      (tn->state != TS_END) &&
+      (tn->pos < tn->len)
+  ) {
     const char c = tn->buffer[tn->pos];
 
     if( tn->state == TS_EMPTY ) {
@@ -88,9 +94,9 @@ Token* tokenize(const char* buffer, size_t len) {
         gain(tn);
         accept(tn, TT_EOF);
         reset(tn);
-        // 終了状態は導入してないけどあってもいいかもね
-        // into(tn, TS_END);
-        break;
+        // 終了状態にintoして終了させる
+        into(tn, TS_END);
+        continue;
       }
 
       // この言語は改行やスペースでトークンを区切っていく
@@ -100,7 +106,7 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) {
         gain(tn);
         // TODO: あえて受け取っておいて実際にはacceptしないみたいな作りにすると統一感出る？
-        // accept(tn, TT_SKIP);
+        accept(tn, TT_SKIP);
         reset(tn);
         into(tn, TS_EMPTY);
         continue;
