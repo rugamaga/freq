@@ -57,20 +57,19 @@ static Tokenizer* create_tokenizer(const char* buffer, size_t len) {
   return tn;
 }
 
-static void reset(Tokenizer* tn) {
-  tn->beg = tn->pos;
-}
-
 static void gain(Tokenizer* tn) {
   tn->pos += 1;
 }
 
 static void accept(Tokenizer* tn, TokenType type) {
   // TT_SKIPのときは特別に実際にはトークンは記録しない
-  if( type == TT_SKIP ) return;
-  Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
-  tn->current->next = t;
-  tn->current = t;
+  if( type != TT_SKIP ) {
+    Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
+    tn->current->next = t;
+    tn->current = t;
+  }
+
+  tn->beg = tn->pos;
 }
 
 static void into(Tokenizer* tn, TokenizerState state) {
@@ -93,8 +92,7 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '\0' ) {
         gain(tn);
         accept(tn, TT_EOF);
-        reset(tn);
-        // 終了状態にintoして終了させる
+        // 終了状態にintoするので終了となる
         into(tn, TS_END);
         continue;
       }
@@ -105,9 +103,7 @@ Token* tokenize(const char* buffer, size_t len) {
       // まだ何もトークンがないので読み飛ばす以外にすることはない
       if( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) {
         gain(tn);
-        // TODO: あえて受け取っておいて実際にはacceptしないみたいな作りにすると統一感出る？
         accept(tn, TT_SKIP);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -164,7 +160,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '+' ) {
         gain(tn);
         accept(tn, TT_PLUS);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -172,7 +167,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '-' ) {
         gain(tn);
         accept(tn, TT_MINUS);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -180,7 +174,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '*' ) {
         gain(tn);
         accept(tn, TT_MUL);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -188,7 +181,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '/' ) {
         gain(tn);
         accept(tn, TT_DIV);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -196,7 +188,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '(' ) {
         gain(tn);
         accept(tn, TT_LEFT_BRACKET);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -204,7 +195,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == ')' ) {
         gain(tn);
         accept(tn, TT_RIGHT_BRACKET);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -212,7 +202,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == ';' ) {
         gain(tn);
         accept(tn, TT_SEMICOLON);
-        reset(tn);
         into(tn, TS_EMPTY);
         continue;
       }
@@ -241,7 +230,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // それ以外の文字が来たので打ち切り
       accept(tn, TT_IDENT);
-      reset(tn);
       into(tn, TS_EMPTY);
     }
 
@@ -267,7 +255,6 @@ Token* tokenize(const char* buffer, size_t len) {
       // ここまでIDENTを処理していて
       // そのIDENTが今終わったのだ
       accept(tn, TT_IDENT);
-      reset(tn);
       into(tn, TS_EMPTY);
     }
 
@@ -279,7 +266,6 @@ Token* tokenize(const char* buffer, size_t len) {
           ('a' <= c && c <= 'z') ||
           ('0' <= c && c <= '9')
       ) {
-        reset(tn);
         gain(tn);
         into(tn, TS_IDENT);
         continue;
@@ -287,7 +273,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // それ以外の文字が来たのでついにletであることが判明！
       accept(tn, TT_LET);
-      reset(tn);
       into(tn, TS_EMPTY);
       continue;
     }
@@ -307,9 +292,6 @@ Token* tokenize(const char* buffer, size_t len) {
       // ということでトークンにしてしまう
       accept(tn, TT_NUM);
 
-      // 文字の読み込みはしてないのでposは移動させなくていい
-      reset(tn);
-
       // トークンを読み込んだので行き先状態はTS_EMPTY
       into(tn, TS_EMPTY);
 
@@ -322,7 +304,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '=' ) {
         gain(tn);
         accept(tn, TT_EQUAL);
-        reset(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -330,7 +311,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // そうでにないなら、これは代入演算子なのでは？
       accept(tn, TT_ASSIGN);
-      reset(tn);
       into(tn, TS_EMPTY);
       continue;
     }
@@ -341,7 +321,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '=' ) {
         gain(tn);
         accept(tn, TT_NOT_EQUAL);
-        reset(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -361,7 +340,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '=' ) {
         gain(tn);
         accept(tn, TT_LTEQ);
-        reset(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -370,7 +348,6 @@ Token* tokenize(const char* buffer, size_t len) {
       // それ以外の文字が来たということは
       // LTだったということです
       accept(tn, TT_LT);
-      reset(tn);
       into(tn, TS_EMPTY);
 
       continue;
@@ -382,7 +359,6 @@ Token* tokenize(const char* buffer, size_t len) {
       if( c == '=' ) {
         gain(tn);
         accept(tn, TT_GTEQ);
-        reset(tn);
         // トークンを読み込んだので行き先状態はTS_EMPTY
         into(tn, TS_EMPTY);
         continue;
@@ -391,7 +367,6 @@ Token* tokenize(const char* buffer, size_t len) {
       // それ以外の文字が来たということは
       // GTだったということです
       accept(tn, TT_GT);
-      reset(tn);
       into(tn, TS_EMPTY);
 
       continue;
@@ -411,7 +386,6 @@ Token* tokenize(const char* buffer, size_t len) {
 
       // それ以外の文字が来たので打ち切り
       accept(tn, TT_IDENT);
-      reset(tn);
       into(tn, TS_EMPTY);
       continue;
     }
