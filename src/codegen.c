@@ -99,7 +99,7 @@ static void gen_named_store(CodeGen* g, Token* lvar, size_t reg) {
   gen(g, "  store i32 %%%zu, i32* %%%.*s, align 4\n", reg, lvar->len, lvar->buffer + lvar->pos);
 }
 
-static size_t gen_numeric_process(CodeGen* g, AST* ast) {
+static size_t gen_function(CodeGen* g, AST* ast) {
   switch( ast->type ) {
     case ST_NUM: {
       comment(g, "  ; Assign ST_NUM\n");
@@ -113,7 +113,7 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
       comment(g, "  ; Assign ST_LET\n");
       gen_named_alloca(g, ast->lhs->token);
       if( ast->rhs ) {
-        const size_t num_reg = gen_numeric_process(g, ast->rhs);
+        const size_t num_reg = gen_function(g, ast->rhs);
         gen_named_store(g, ast->lhs->token, num_reg);
       }
       const size_t reg = gen_named_load(g, ast->lhs->token);
@@ -128,7 +128,7 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
     break;
     case ST_RET: {
       comment(g, "  ; Load ST_RET\n");
-      const size_t reg = gen_numeric_process(g, ast->lhs);
+      const size_t reg = gen_function(g, ast->lhs);
       // TODO: after implement function, delete it.
       g->index += 2;
       gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", reg);
@@ -142,10 +142,10 @@ static size_t gen_numeric_process(CodeGen* g, AST* ast) {
   }
 
   comment(g, "  ; ------------- Calculate LHS\n");
-  const size_t lhs_reg = gen_numeric_process(g, ast->lhs);
+  const size_t lhs_reg = gen_function(g, ast->lhs);
 
   comment(g, "  ; ------------- Calculate RHS\n");
-  const size_t rhs_reg = gen_numeric_process(g, ast->rhs);
+  const size_t rhs_reg = gen_function(g, ast->rhs);
 
   switch( ast->type ) {
   case ST_ADD:
@@ -240,7 +240,7 @@ void generate_code(CodeGen* g, AST** ast) {
 
   size_t result_reg;
   for( AST** current = ast; *current; ++current ) {
-    result_reg = gen_numeric_process(g, *current);
+    result_reg = gen_function(g, *current);
   }
 
   comment(g, "  ; ------------- Output result\n");
