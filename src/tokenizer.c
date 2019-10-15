@@ -17,6 +17,8 @@ typedef enum {
   TS_LET_0,
   TS_LET_1,
   TS_LET_2,
+
+  TS_SIZE
 } TokenizerState;
 
 Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) {
@@ -58,13 +60,16 @@ static Tokenizer* create_tokenizer(const char* buffer, size_t len) {
   return tn;
 }
 
-static void gain(Tokenizer* tn) {
-  tn->pos += 1;
+static void gain(Tokenizer* tn, size_t diff) {
+  tn->pos += diff;
 }
 
 static void accept(Tokenizer* tn, TokenType type) {
-  // TT_SKIPのときは特別に実際にはトークンは記録しない
-  if( type != TT_SKIP ) {
+  // TT_CONTのときは何もしない
+  if( type == TT_CONT ) return;
+
+  // TT_RESETのときは特別に実際にはトークンは記録しない
+  if( type != TT_RESET ) {
     Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
     tn->current->next = t;
     tn->current = t;
@@ -82,350 +87,168 @@ static void error(Tokenizer* tn, char c) {
   exit(EXIT_FAILURE);
 }
 
-Token* tokenize(const char* buffer, size_t len) {
-  Tokenizer* tn = create_tokenizer(buffer, len);
+typedef enum {
+  IS_NULL = 0,
+  IS_L,
+  IS_E,
+  IS_T,
+  IS_EQUAL,
+  IS_BANG,
+  IS_LT,
+  IS_GT,
+  IS_PLUS,
+  IS_MINUS,
+  IS_STAR,
+  IS_SLASH,
+  IS_LEFT_BRACKET,
+  IS_RIGHT_BRACKET,
+  IS_SEMICOLON,
+  IS_LOWER,
+  IS_UPPER,
+  IS_DIGIT,
+  IS_SPACE,
+  IS_DEFAULT,
 
+  CONDS_SIZE
+} Condition;
+
+void check_conds(bool* conds, char c) {
+  conds[IS_NULL]          = ('\0' == c);
+  conds[IS_L]             = ('l' == c);
+  conds[IS_E]             = ('e' == c);
+  conds[IS_T]             = ('t' == c);
+  conds[IS_EQUAL]         = ('=' == c);
+  conds[IS_BANG]          = ('!' == c);
+  conds[IS_LT]            = ('<' == c);
+  conds[IS_GT]            = ('>' == c);
+  conds[IS_PLUS]          = ('+' == c);
+  conds[IS_MINUS]         = ('-' == c);
+  conds[IS_STAR]          = ('*' == c);
+  conds[IS_SLASH]         = ('/' == c);
+  conds[IS_LEFT_BRACKET]  = ('(' == c);
+  conds[IS_RIGHT_BRACKET] = (')' == c);
+  conds[IS_SEMICOLON]     = (';' == c );
+  conds[IS_LOWER]         = ('a' <= c && c <= 'z');
+  conds[IS_UPPER]         = ('A' <= c && c <= 'Z');
+  conds[IS_DIGIT]         = ('0' <= c && c <= '9');
+  conds[IS_SPACE]         = (' ' == c || '\t' == c || '\r' == c || '\n' == c);
+  conds[IS_DEFAULT]       = true;
+}
+
+typedef struct {
+  Condition cond;
+  size_t gain;
+  TokenType accept;
+  TokenizerState into;
+  bool error;
+} Action;
+
+
+static const Action ts_end[] = {
+  { IS_DEFAULT, 0, TT_CONT, TS_END, true },
+};
+
+static const Action ts_empty[] = {
+  { IS_NULL, 1, TT_EOF, TS_END, false },
+  { IS_SPACE, 1, TT_RESET, TS_EMPTY, false },
+  { IS_L, 1, TT_CONT, TS_LET_0, false },
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_NUM, false },
+  { IS_EQUAL, 1, TT_CONT, TS_EQUAL, false },
+  { IS_BANG, 1, TT_CONT, TS_NOT, false },
+  { IS_LT, 1, TT_CONT, TS_LT, false },
+  { IS_GT, 1, TT_CONT, TS_GT, false },
+  { IS_PLUS, 1, TT_PLUS, TS_EMPTY, false },
+  { IS_MINUS, 1, TT_MINUS, TS_EMPTY, false },
+  { IS_STAR, 1, TT_MUL, TS_EMPTY, false },
+  { IS_SLASH, 1, TT_DIV, TS_EMPTY, false },
+  { IS_LEFT_BRACKET, 1, TT_LEFT_BRACKET, TS_EMPTY, false },
+  { IS_RIGHT_BRACKET, 1, TT_RIGHT_BRACKET, TS_EMPTY, false },
+  { IS_SEMICOLON, 1, TT_SEMICOLON, TS_EMPTY, false },
+  { IS_DEFAULT, 0, TT_CONT, TS_EMPTY, true },
+};
+static const Action ts_num[] = {
+  { IS_DIGIT, 1, TT_CONT, TS_NUM, false },
+  { IS_DEFAULT, 0, TT_NUM, TS_EMPTY, false },
+};
+static const Action ts_equal[] = {
+  { IS_EQUAL, 1, TT_EQUAL, TS_EMPTY, false },
+  { IS_DEFAULT, 0, TT_ASSIGN, TS_EMPTY, false },
+};
+static const Action ts_not[] = {
+  { IS_EQUAL, 1, TT_NOT_EQUAL, TS_EMPTY, false },
+  // TODO: introduce op-NOT
+  { IS_DEFAULT, 0, TT_CONT, TS_EMPTY, true },
+};
+static const Action ts_lt[] = {
+  { IS_EQUAL, 1, TT_LTEQ, TS_EMPTY, false },
+  { IS_DEFAULT, 0, TT_LT, TS_EMPTY, false },
+};
+static const Action ts_gt[] = {
+  { IS_EQUAL, 1, TT_GTEQ, TS_EMPTY, false },
+  { IS_DEFAULT, 0, TT_GT, TS_EMPTY, false },
+};
+static const Action ts_ident[] = {
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
+};
+static const Action ts_let_0[] = {
+  { IS_E, 1, TT_CONT, TS_LET_1, false },
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
+};
+static const Action ts_let_1[] = {
+  { IS_T, 1, TT_CONT, TS_LET_2, false },
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
+};
+static const Action ts_let_2[] = {
+  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
+  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
+  { IS_DEFAULT, 0, TT_LET, TS_EMPTY, false },
+};
+
+void setup_action_table(const Action** actions) {
+  actions[TS_END] = ts_end;
+  actions[TS_EMPTY] = ts_empty;
+  actions[TS_NUM] = ts_num;
+  actions[TS_EQUAL] = ts_equal;
+  actions[TS_NOT] = ts_not;
+  actions[TS_LT] = ts_lt;
+  actions[TS_GT] = ts_gt;
+  actions[TS_IDENT] = ts_ident;
+  actions[TS_LET_0] = ts_let_0;
+  actions[TS_LET_1] = ts_let_1;
+  actions[TS_LET_2] = ts_let_2;
+}
+
+Token* tokenize(const char* buffer, size_t len) {
+  const Action* actions[TS_SIZE];
+  setup_action_table(actions);
+
+  Tokenizer* tn = create_tokenizer(buffer, len);
   while(
       (tn->state != TS_END) &&
       (tn->pos < tn->len)
   ) {
     const char c = tn->buffer[tn->pos];
 
-    const bool is_null = ('\0' == c);
-    const bool is_space = (' ' == c || '\t' == c || '\r' == c || '\n' == c);
-    const bool is_l = ('l' == c);
-    const bool is_e = ('e' == c);
-    const bool is_t = ('t' == c);
-    const bool is_equal = ('=' == c);
-    const bool is_bang = ('!' == c);
-    const bool is_lt = ('<' == c);
-    const bool is_gt = ('>' == c);
-    const bool is_plus = ('+' == c);
-    const bool is_minus = ('-' == c);
-    const bool is_star = ('*' == c);
-    const bool is_slash = ('/' == c);
-    const bool is_left_paren = ('(' == c);
-    const bool is_right_paren = (')' == c);
-    const bool is_semicolon = (';' == c );
-    const bool is_lower = ('a' <= c && c <= 'z');
-    const bool is_upper = ('A' <= c && c <= 'Z');
-    const bool is_digit = ('0' <= c && c <= '9');
-    const bool is_default = true;
+    bool conds[CONDS_SIZE];
+    check_conds(conds, c);
 
-    if( tn->state == TS_EMPTY ) {
-      // バッファの終了。
-      // TS_EMPTYでバッファの終りが来るのが正常な終了。
-      // なので読み取れたトークン情報のルートを返して終了
-      if( is_null ) {
-        gain(tn);
-        accept(tn, TT_EOF);
-        // 終了状態にintoするので終了となる
-        into(tn, TS_END);
-        continue;
-      }
-
-      // この言語は改行やスペースでトークンを区切っていく
-      // しかしTS_EMPTYモードでのスペースやトークンとは、
-      // つまるところ「連続でスペースだったね…」ということ。
-      // まだ何もトークンがないので読み飛ばす以外にすることはない
-      if( is_space ) {
-        gain(tn);
-        accept(tn, TT_SKIP);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      // 'l'が来たならTT_LETっぽさがある
-      if( is_l ) {
-        gain(tn);
-        into(tn, TS_LET_0);
-        continue;
-      }
-
-      if( is_lower ) {
-        gain(tn);
-        into(tn, TS_IDENT);
-        continue;
-      }
-
-      // TS_EMPTYで数値が始まったら、それは数値だ。
-      if( is_digit ) {
-        // 1文字読んで数値解析モードに飛ぶ
-        gain(tn);
-        into(tn, TS_NUM);
-        continue;
-      }
-
-      // TS_EMPTYでイコールが着たら、多分Equal。
-      if( is_equal ) {
-        gain(tn);
-        into(tn, TS_EQUAL);
-        continue;
-      }
-
-      // TS_EMPTYでノットが着たら、多分Not。
-      if( is_bang ) {
-        gain(tn);
-        into(tn, TS_NOT);
-        continue;
-      }
-
-      // TS_EMPTYでLTが着たら、多分LT
-      if( is_lt ) {
-        gain(tn);
-        into(tn, TS_LT);
-        continue;
-      }
-
-      // TS_EMPTYでGTが着たら、多分GT
-      if( is_gt ) {
-        gain(tn);
-        into(tn, TS_GT);
-        continue;
-      }
-
-      if( is_plus ) {
-        gain(tn);
-        accept(tn, TT_PLUS);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_minus ) {
-        gain(tn);
-        accept(tn, TT_MINUS);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_star ) {
-        gain(tn);
-        accept(tn, TT_MUL);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_slash ) {
-        gain(tn);
-        accept(tn, TT_DIV);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_left_paren ) {
-        gain(tn);
-        accept(tn, TT_LEFT_BRACKET);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_right_paren ) {
-        gain(tn);
-        accept(tn, TT_RIGHT_BRACKET);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_semicolon ) {
-        gain(tn);
-        accept(tn, TT_SEMICOLON);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      if( is_default ) {
-        error(tn, c);
-        continue;
-      }
+    // 各アクションテーブルには必ずIS_DEFAULTが入っている
+    // ...ので、このループは必ず終わる
+    for( const Action* act = actions[ tn->state ]; ; ++act ) {
+      if( !conds[ act->cond ] ) continue;
+      if( act->error ) error( tn, c );
+      gain( tn, act->gain );
+      accept( tn, act->accept );
+      into( tn, act->into );
+      break;
     }
-
-    if( tn->state == TS_LET_0 ) {
-      // 'e'が来るならlet節っぽさが増す
-      if( is_e ) {
-        gain(tn);
-        into(tn, TS_LET_1);
-        continue;
-      }
-
-      if( is_lower || is_digit ) {
-        gain(tn);
-        into(tn, TS_IDENT);
-        continue;
-      }
-
-      // それ以外の文字が来たので打ち切り
-      if( is_default ) {
-        accept(tn, TT_IDENT);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-    }
-
-    if( tn->state == TS_LET_1 ) {
-      // 't'が来るならlet節っぽさが更に増す
-      if( is_t ) {
-        gain(tn);
-        into(tn, TS_LET_2);
-        continue;
-      }
-
-      // そうじゃないならIDENTだったんだよ。
-      if( is_lower || is_digit ) {
-        gain(tn);
-        into(tn, TS_IDENT);
-        continue;
-      }
-
-      // それら以外なら
-      // ここまでIDENTを処理していて
-      // そのIDENTが今終わったのだ
-      if( is_default ) {
-        accept(tn, TT_IDENT);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-    }
-
-    if( tn->state == TS_LET_2 ) {
-      // ident的な文字が来てしまうなら
-      // 実はletじゃなくてidentだったので
-      // そのままidentとしてがんばってもらう
-      if( is_lower || is_digit ) {
-        gain(tn);
-        into(tn, TS_IDENT);
-        continue;
-      }
-
-      // それ以外の文字が来たのでついにletであることが判明！
-      if( is_default ) {
-        accept(tn, TT_LET);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-    }
-
-    if( tn->state == TS_NUM ) {
-      // 数字以外の文字が来たってことは、ここまでが数値リテラルだったってことでしょ？
-      // TS_EMPTYで数値が始まったら、それは数値だ。
-      if( is_digit ) {
-        // 引き続き数値として処理する
-        gain(tn);
-        into(tn, TS_NUM);
-        continue;
-      }
-
-      // 数字でない何かが来たということは、
-      // この時点で数値リテラルは終わったということ。
-      // ということでトークンにしてしまう
-      if( is_default ) {
-        accept(tn, TT_NUM);
-        into(tn, TS_EMPTY);
-      }
-
-      // トークンを読み込んだので行き先状態はTS_EMPTY
-
-      continue;
-    }
-
-    if( tn->state == TS_EQUAL ) {
-      // ここでイコールがきたということは、
-      // 同値判定のためのイコールだったということです
-      if( is_equal ) {
-        gain(tn);
-        accept(tn, TT_EQUAL);
-        // トークンを読み込んだので行き先状態はTS_EMPTY
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      // そうでにないなら、これは代入演算子なのでは？
-      if( is_default ) {
-        accept(tn, TT_ASSIGN);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-    }
-
-    if( tn->state == TS_NOT ) {
-      // ここでイコールがきたということは、
-      // 不等号だったということです
-      if( is_equal ) {
-        gain(tn);
-        accept(tn, TT_NOT_EQUAL);
-        // トークンを読み込んだので行き先状態はTS_EMPTY
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      // 取り扱えない文字なのでエラーを出して落とす
-      if( is_default ) {
-        error(tn, c);
-        continue;
-      }
-    }
-
-    if( tn->state == TS_LT ) {
-      // ここでイコールがきたということは、
-      // LTEQだったということです
-      if( is_equal ) {
-        gain(tn);
-        accept(tn, TT_LTEQ);
-        // トークンを読み込んだので行き先状態はTS_EMPTY
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      // それ以外の文字が来たということは
-      // LTだったということです
-      if( is_default ) {
-        accept(tn, TT_LT);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-    }
-
-    if( tn->state == TS_GT ) {
-      // ここでイコールがきたということは、
-      // GTEQだったということです
-      if( is_equal ) {
-        gain(tn);
-        accept(tn, TT_GTEQ);
-        // トークンを読み込んだので行き先状態はTS_EMPTY
-        into(tn, TS_EMPTY);
-        continue;
-      }
-
-      // それ以外の文字が来たということは
-      // GTだったということです
-      if( is_default ) {
-        accept(tn, TT_GT);
-        into(tn, TS_EMPTY);
-      }
-
-      continue;
-    }
-
-    if( tn->state == TS_IDENT ) {
-      if( is_lower || is_digit ) {
-        gain(tn);
-        into(tn, TS_IDENT);
-        continue;
-      }
-
-      // それ以外の文字が来たので打ち切り
-      if( is_default ) {
-        accept(tn, TT_IDENT);
-        into(tn, TS_EMPTY);
-        continue;
-      }
-    }
-
-    // 取り扱えない文字なのでエラーを出して落とす
-    error(tn, c);
-
-    // メモリ解放は頑張らない(D言語方式)
-    // free_token(current);
-    return NULL;
   }
 
   return tn->root;

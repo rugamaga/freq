@@ -4,7 +4,8 @@ typedef enum {
   // メタなtoken
   TT_ROOT, // ROOTトークン。tokenizerの実装を簡単にするのに最初に必ず入っている
   TT_EOF,  // EOFトークン。Parserの実装を簡単にするために最後にかならず入っている
-  TT_SKIP, // SKIPされたトークン。実際には発生しないがtokenizerが内部で使う
+  TT_RESET, // RESETされ内容を記録されなかったトークン。実際には発生しないがtokenizerが内部で使う
+  TT_CONT, // ACCEPTせず継続させるトークン。実際には発生しないがTokenizerが内部で使う
 
   // メタなtoken
   TT_NUM,
