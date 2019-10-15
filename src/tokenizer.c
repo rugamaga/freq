@@ -68,8 +68,8 @@ static void accept(Tokenizer* tn, TokenType type) {
   // TT_CONTのときは何もしない
   if( type == TT_CONT ) return;
 
-  // TT_RESETのときは特別に実際にはトークンは記録しない
-  if( type != TT_RESET ) {
+  // TT_SKIPのときは特別に実際にはトークンは記録しない
+  if( type != TT_SKIP ) {
     Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
     tn->current->next = t;
     tn->current = t;
@@ -150,7 +150,7 @@ static const Action ts_end[] = {
 
 static const Action ts_empty[] = {
   { IS_NULL, 1, TT_EOF, TS_END, false },
-  { IS_SPACE, 1, TT_RESET, TS_EMPTY, false },
+  { IS_SPACE, 1, TT_SKIP, TS_EMPTY, false },
   { IS_L, 1, TT_CONT, TS_LET_0, false },
   { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
   { IS_DIGIT, 1, TT_CONT, TS_NUM, false },
