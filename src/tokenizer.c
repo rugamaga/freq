@@ -1,31 +1,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "tokenizer.h"
 #include "util.h"
-
-typedef enum {
-  TS_END,
-  TS_EMPTY,
-  TS_NUM,
-  TS_EQUAL,
-  TS_NOT,
-  TS_LT,
-  TS_GT,
-  TS_IDENT,
-  TS_LET_0,
-  TS_LET_1,
-  TS_LET_2,
-  TS_RET_0,
-  TS_RET_1,
-  TS_RET_2,
-  TS_FUN_0,
-  TS_FUN_1,
-  TS_FUN_2,
-
-  TS_SIZE
-} TokenizerState;
 
 Token* create_token(TokenType type, const char* buffer, size_t pos, size_t len) {
   Token* token = (Token*)malloc(sizeof(Token));
@@ -41,8 +20,6 @@ typedef struct {
   const char* buffer;
   Token* root;
   Token* current;
-  TokenizerState state;
-  size_t beg;
   size_t pos;
   size_t len;
 } Tokenizer;
@@ -58,34 +35,25 @@ static Tokenizer* create_tokenizer(const char* buffer, size_t len) {
   // 何かと楽をしましょう。
   tn->current = tn->root = create_token(TT_ROOT, buffer, 0, 0);
 
-  tn->state = TS_EMPTY;
-  tn->beg = 0;
   tn->pos = 0;
   tn->len = len;
 
   return tn;
 }
 
-static void gain(Tokenizer* tn, size_t diff) {
-  tn->pos += diff;
+char read(Tokenizer* tn, size_t diff) {
+  return *(tn->buffer + tn->pos + diff);
 }
 
-static void accept(Tokenizer* tn, TokenType type) {
-  // TT_CONTのときは何もしない
-  if( type == TT_CONT ) return;
-
-  // TT_SKIPのときは特別に実際にはトークンは記録しない
-  if( type != TT_SKIP ) {
-    Token* t = create_token(type, tn->buffer, tn->beg, tn->pos - tn->beg);
-    tn->current->next = t;
-    tn->current = t;
-  }
-
-  tn->beg = tn->pos;
+static void skip(Tokenizer* tn, size_t size) {
+  tn->pos += size;
 }
 
-static void into(Tokenizer* tn, TokenizerState state) {
-  tn->state = state;
+static void accept(Tokenizer* tn, TokenType type, size_t size) {
+  Token* t = create_token(type, tn->buffer, tn->pos, size);
+  tn->current->next = t;
+  tn->current = t;
+  skip(tn, size);
 }
 
 static void error(Tokenizer* tn, char c) {
@@ -93,222 +61,93 @@ static void error(Tokenizer* tn, char c) {
   exit(EXIT_FAILURE);
 }
 
-typedef enum {
-  IS_NULL = 0,
-  IS_L,
-  IS_E,
-  IS_T,
-  IS_R,
-  IS_F,
-  IS_U,
-  IS_N,
-  IS_EQUAL,
-  IS_BANG,
-  IS_LT,
-  IS_GT,
-  IS_PLUS,
-  IS_MINUS,
-  IS_STAR,
-  IS_SLASH,
-  IS_LEFT_BRACKET,
-  IS_RIGHT_BRACKET,
-  IS_SEMICOLON,
-  IS_LOWER,
-  IS_UPPER,
-  IS_DIGIT,
-  IS_SPACE,
-  IS_DEFAULT,
+typedef struct {
+  size_t size;
+  const char* word;
+  TokenType type;
+  bool can_after_with_num;
+} Reserved;
 
-  CONDS_SIZE
-} Condition;
-
-void check_conds(bool* conds, char c) {
-  conds[IS_NULL]          = ('\0' == c);
-  conds[IS_L]             = ('l' == c);
-  conds[IS_E]             = ('e' == c);
-  conds[IS_T]             = ('t' == c);
-  conds[IS_R]             = ('r' == c);
-  // conds[IS_E]             = ('e' == c);
-  // conds[IS_T]             = ('t' == c);
-  conds[IS_F]             = ('f' == c);
-  conds[IS_U]             = ('u' == c);
-  conds[IS_N]             = ('n' == c);
-  conds[IS_EQUAL]         = ('=' == c);
-  conds[IS_BANG]          = ('!' == c);
-  conds[IS_LT]            = ('<' == c);
-  conds[IS_GT]            = ('>' == c);
-  conds[IS_PLUS]          = ('+' == c);
-  conds[IS_MINUS]         = ('-' == c);
-  conds[IS_STAR]          = ('*' == c);
-  conds[IS_SLASH]         = ('/' == c);
-  conds[IS_LEFT_BRACKET]  = ('(' == c);
-  conds[IS_RIGHT_BRACKET] = (')' == c);
-  conds[IS_SEMICOLON]     = (';' == c );
-  conds[IS_LOWER]         = ('a' <= c && c <= 'z');
-  conds[IS_UPPER]         = ('A' <= c && c <= 'Z');
-  conds[IS_DIGIT]         = ('0' <= c && c <= '9');
-  conds[IS_SPACE]         = (' ' == c || '\t' == c || '\r' == c || '\n' == c);
-  conds[IS_DEFAULT]       = true;
+bool skip_space(Tokenizer* tn) {
+  char c = read(tn, 0);
+  if( ' ' == c || '\t' == c || '\r' == c || '\n' == c ) {
+    skip(tn, 1);
+    return true;
+  } else {
+    return false;
+  }
 }
 
-typedef struct {
-  Condition cond;
-  size_t gain;
-  TokenType accept;
-  TokenizerState into;
-  bool error;
-} Action;
-
-
-static const Action ts_end[] = {
-  { IS_DEFAULT, 0, TT_CONT, TS_END, true },
+static const Reserved reserved[] = {
+  { 3, "let", TT_LET, false },
+  { 3, "ret", TT_RET, false },
+  { 3, "fun", TT_FUN, false },
+  { 2, "==", TT_EQUAL, true },
+  { 2, "!=", TT_NOT_EQUAL, true },
+  { 2, "<=", TT_LTEQ, true },
+  { 2, ">=", TT_GTEQ, true },
+  { 1, "<", TT_LT, true },
+  { 1, ">", TT_GT, true },
+  { 1, "=", TT_ASSIGN, true },
+  { 1, "+", TT_PLUS, true },
+  { 1, "-", TT_MINUS, true },
+  { 1, "*", TT_MUL, true },
+  { 1, "/", TT_DIV, true },
+  { 1, "(", TT_LEFT_BRACKET, true },
+  { 1, ")", TT_RIGHT_BRACKET, true },
+  { 1, ";", TT_SEMICOLON, true },
 };
 
-static const Action ts_empty[] = {
-  { IS_NULL, 1, TT_EOF, TS_END, false },
-  { IS_SPACE, 1, TT_SKIP, TS_EMPTY, false },
-  { IS_L, 1, TT_CONT, TS_LET_0, false },
-  { IS_R, 1, TT_CONT, TS_RET_0, false },
-  { IS_F, 1, TT_CONT, TS_FUN_0, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_NUM, false },
-  { IS_EQUAL, 1, TT_CONT, TS_EQUAL, false },
-  { IS_BANG, 1, TT_CONT, TS_NOT, false },
-  { IS_LT, 1, TT_CONT, TS_LT, false },
-  { IS_GT, 1, TT_CONT, TS_GT, false },
-  { IS_PLUS, 1, TT_PLUS, TS_EMPTY, false },
-  { IS_MINUS, 1, TT_MINUS, TS_EMPTY, false },
-  { IS_STAR, 1, TT_MUL, TS_EMPTY, false },
-  { IS_SLASH, 1, TT_DIV, TS_EMPTY, false },
-  { IS_LEFT_BRACKET, 1, TT_LEFT_BRACKET, TS_EMPTY, false },
-  { IS_RIGHT_BRACKET, 1, TT_RIGHT_BRACKET, TS_EMPTY, false },
-  { IS_SEMICOLON, 1, TT_SEMICOLON, TS_EMPTY, false },
-  { IS_DEFAULT, 0, TT_CONT, TS_EMPTY, true },
-};
-static const Action ts_num[] = {
-  { IS_DIGIT, 1, TT_CONT, TS_NUM, false },
-  { IS_DEFAULT, 0, TT_NUM, TS_EMPTY, false },
-};
-static const Action ts_equal[] = {
-  { IS_EQUAL, 1, TT_EQUAL, TS_EMPTY, false },
-  { IS_DEFAULT, 0, TT_ASSIGN, TS_EMPTY, false },
-};
-static const Action ts_not[] = {
-  { IS_EQUAL, 1, TT_NOT_EQUAL, TS_EMPTY, false },
-  // TODO: introduce op-NOT
-  { IS_DEFAULT, 0, TT_CONT, TS_EMPTY, true },
-};
-static const Action ts_lt[] = {
-  { IS_EQUAL, 1, TT_LTEQ, TS_EMPTY, false },
-  { IS_DEFAULT, 0, TT_LT, TS_EMPTY, false },
-};
-static const Action ts_gt[] = {
-  { IS_EQUAL, 1, TT_GTEQ, TS_EMPTY, false },
-  { IS_DEFAULT, 0, TT_GT, TS_EMPTY, false },
-};
-static const Action ts_ident[] = {
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_let_0[] = {
-  { IS_E, 1, TT_CONT, TS_LET_1, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_let_1[] = {
-  { IS_T, 1, TT_CONT, TS_LET_2, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_let_2[] = {
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_LET, TS_EMPTY, false },
-};
-static const Action ts_ret_0[] = {
-  { IS_E, 1, TT_CONT, TS_RET_1, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_ret_1[] = {
-  { IS_T, 1, TT_CONT, TS_RET_2, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_ret_2[] = {
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_RET, TS_EMPTY, false },
-};
-static const Action ts_fun_0[] = {
-  { IS_E, 1, TT_CONT, TS_FUN_1, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_fun_1[] = {
-  { IS_T, 1, TT_CONT, TS_FUN_2, false },
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_IDENT, TS_EMPTY, false },
-};
-static const Action ts_fun_2[] = {
-  { IS_LOWER, 1, TT_CONT, TS_IDENT, false },
-  { IS_DIGIT, 1, TT_CONT, TS_IDENT, false },
-  { IS_DEFAULT, 0, TT_FUN, TS_EMPTY, false },
-};
+bool match_reserved(Tokenizer* tn) {
+  for( size_t i = 0; i < (sizeof(reserved) / sizeof(Reserved)); ++i ) {
+    const Reserved r = reserved[ i ];
 
-void setup_action_table(const Action** actions) {
-  actions[TS_END] = ts_end;
-  actions[TS_EMPTY] = ts_empty;
-  actions[TS_NUM] = ts_num;
-  actions[TS_EQUAL] = ts_equal;
-  actions[TS_NOT] = ts_not;
-  actions[TS_LT] = ts_lt;
-  actions[TS_GT] = ts_gt;
-  actions[TS_IDENT] = ts_ident;
-  actions[TS_LET_0] = ts_let_0;
-  actions[TS_LET_1] = ts_let_1;
-  actions[TS_LET_2] = ts_let_2;
-  actions[TS_RET_0] = ts_ret_0;
-  actions[TS_RET_1] = ts_ret_1;
-  actions[TS_RET_2] = ts_ret_2;
-  actions[TS_FUN_0] = ts_fun_0;
-  actions[TS_FUN_1] = ts_fun_1;
-  actions[TS_FUN_2] = ts_fun_2;
+    bool all_matched = true;
+    for( size_t j = 0; j < r.size; ++j ) {
+      all_matched &= (r.word[ j ] == read( tn, j ));
+    }
+    if( !all_matched ) continue;
+    // 次の文字がアルファベットとかならこれはIDENTっぽいので駄目
+    if( isalpha( read(tn, r.size) ) ) continue;
+    // 数字が駄目なトークンの場合は数字も駄目。
+    if( !r.can_after_with_num && isdigit( read(tn, r.size) ) ) continue;
+    // これだった
+    accept( tn, r.type, r.size );
+    return true;
+  }
+  return false;
+}
+
+bool match_num(Tokenizer* tn) {
+  if( !isdigit( read( tn, 0 ) ) ) return false;
+
+  size_t size;
+  for( size = 1; isdigit( read( tn, size ) ); ++size ) ;
+  accept( tn, TT_NUM, size );
+  return true;
+}
+
+bool match_ident(Tokenizer* tn) {
+  if( !isalpha( read( tn, 0 ) ) ) return false;
+
+  size_t size;
+  for( size = 1; isalnum( read( tn, size ) ); ++size ) ;
+  accept( tn, TT_IDENT, size );
+  return true;
 }
 
 Token* tokenize(const char* buffer, size_t len) {
-  const Action* actions[TS_SIZE];
-  setup_action_table(actions);
-
   Tokenizer* tn = create_tokenizer(buffer, len);
-  while(
-      (tn->state != TS_END) &&
-      (tn->pos < tn->len)
-  ) {
-    const char c = tn->buffer[tn->pos];
 
-    bool conds[CONDS_SIZE];
-    check_conds(conds, c);
-
-    // 各アクションテーブルには必ずIS_DEFAULTが入っている
-    // ...ので、このループは必ず終わる
-    for( const Action* act = actions[ tn->state ]; ; ++act ) {
-      if( !conds[ act->cond ] ) continue;
-      if( act->error ) error( tn, c );
-      gain( tn, act->gain );
-      accept( tn, act->accept );
-      into( tn, act->into );
-      break;
-    }
+  while( read( tn, 0 ) != '\0' ) {
+    if( skip_space( tn ) ) continue;
+    if( match_reserved( tn ) ) continue;
+    if( match_num( tn ) ) continue;
+    if( match_ident( tn ) ) continue;
+    error( tn, read( tn, 0 ) );
   }
 
+  accept( tn, TT_EOF, 1 );
   return tn->root;
 }
 
