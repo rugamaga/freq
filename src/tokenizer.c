@@ -65,7 +65,6 @@ typedef struct {
   size_t size;
   const char* word;
   TokenType type;
-  bool can_after_with_num;
 } Reserved;
 
 bool skip_space(Tokenizer* tn) {
@@ -79,23 +78,23 @@ bool skip_space(Tokenizer* tn) {
 }
 
 static const Reserved reserved[] = {
-  { 3, "let", TT_LET, false },
-  { 3, "ret", TT_RET, false },
-  { 3, "fun", TT_FUN, false },
-  { 2, "==", TT_EQUAL, true },
-  { 2, "!=", TT_NOT_EQUAL, true },
-  { 2, "<=", TT_LTEQ, true },
-  { 2, ">=", TT_GTEQ, true },
-  { 1, "<", TT_LT, true },
-  { 1, ">", TT_GT, true },
-  { 1, "=", TT_ASSIGN, true },
-  { 1, "+", TT_PLUS, true },
-  { 1, "-", TT_MINUS, true },
-  { 1, "*", TT_MUL, true },
-  { 1, "/", TT_DIV, true },
-  { 1, "(", TT_LEFT_BRACKET, true },
-  { 1, ")", TT_RIGHT_BRACKET, true },
-  { 1, ";", TT_SEMICOLON, true },
+  { 3, "let", TT_LET },
+  { 3, "ret", TT_RET },
+  { 3, "fun", TT_FUN },
+  { 2, "==", TT_EQUAL },
+  { 2, "!=", TT_NOT_EQUAL },
+  { 2, "<=", TT_LTEQ },
+  { 2, ">=", TT_GTEQ },
+  { 1, "<", TT_LT },
+  { 1, ">", TT_GT },
+  { 1, "=", TT_ASSIGN },
+  { 1, "+", TT_PLUS },
+  { 1, "-", TT_MINUS },
+  { 1, "*", TT_MUL },
+  { 1, "/", TT_DIV },
+  { 1, "(", TT_LEFT_BRACKET },
+  { 1, ")", TT_RIGHT_BRACKET },
+  { 1, ";", TT_SEMICOLON },
 };
 
 bool match_reserved(Tokenizer* tn) {
@@ -109,8 +108,8 @@ bool match_reserved(Tokenizer* tn) {
     if( !all_matched ) continue;
     // 次の文字がアルファベットとかならこれはIDENTっぽいので駄目
     if( isalpha( read(tn, r.size) ) ) continue;
-    // 数字が駄目なトークンの場合は数字も駄目。
-    if( !r.can_after_with_num && isdigit( read(tn, r.size) ) ) continue;
+    // 先頭が文字であるなら、最後が数字もIDENTの可能性が残るので駄目。
+    if( isalpha( read(tn, 0 ) ) && isdigit( read(tn, r.size) ) ) continue;
     // これだった
     accept( tn, r.type, r.size );
     return true;
