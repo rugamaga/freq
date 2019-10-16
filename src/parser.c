@@ -47,9 +47,9 @@ static AST* parse_expr(Parser* parser);
 static AST* parse_factor(Parser* parser) {
   Token* tok;
   AST* node;
-  if( consume( parser, TT_LEFT_BRACKET ) ) {
+  if( consume( parser, TT_LEFT_PAREN ) ) {
     AST* node = parse_expr( parser );
-    if( consume( parser, TT_RIGHT_BRACKET ) ) {
+    if( consume( parser, TT_RIGHT_PAREN ) ) {
       return node;
     }
     return NULL;

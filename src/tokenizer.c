@@ -92,8 +92,12 @@ static const Reserved reserved[] = {
   { 1, "-", TT_MINUS },
   { 1, "*", TT_MUL },
   { 1, "/", TT_DIV },
-  { 1, "(", TT_LEFT_BRACKET },
-  { 1, ")", TT_RIGHT_BRACKET },
+  { 1, "(", TT_LEFT_PAREN },
+  { 1, ")", TT_RIGHT_PAREN },
+  { 1, "[", TT_LEFT_BRACKET },
+  { 1, "]", TT_RIGHT_BRACKET },
+  { 1, "{", TT_LEFT_BRACE },
+  { 1, "}", TT_RIGHT_BRACE },
   { 1, ";", TT_SEMICOLON },
 };
 
