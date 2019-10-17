@@ -11,4 +11,4 @@ typedef struct {
 } CodeGen;
 
 CodeGen* create_codegen(FILE* output, bool debug);
-void generate_code(CodeGen* gen, AST** ast);
+void generate_code(CodeGen* gen, AST* root);

@@ -221,7 +221,7 @@ static size_t gen_function(CodeGen* g, AST* ast) {
   return g->index;
 }
 
-void generate_code(CodeGen* g, AST** ast) {
+void generate_code(CodeGen* g, AST* root) {
   gen(g, "%%FILE = type opaque\n");
   gen(g, "@__stdinp = external global %%FILE*, align 8\n");
   gen(g, "@__stdoutp = external global %%FILE*, align 8\n");
@@ -239,7 +239,7 @@ void generate_code(CodeGen* g, AST** ast) {
   gen(g, "define i32 @main() nounwind {\n");
 
   size_t result_reg;
-  for( AST** current = ast; *current; ++current ) {
+  for( AST** current = root->children; *current; ++current ) {
     result_reg = gen_function(g, *current);
   }
 

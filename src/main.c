@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
 
   // コード生成
   CodeGen* gen = create_codegen(outfile, debug);
-  generate_code(gen, parser->ast->children);
+  generate_code(gen, parser->ast);
 
   return 0;
 }
