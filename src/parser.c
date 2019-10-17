@@ -5,12 +5,10 @@
 #include "parser.h"
 #include "util.h"
 
-#define MAX_BLOCK_SIZE 1024
-#define MAX_CODE_SIZE 10240
-
+static AST* create_ast(SyntaxType type, Token* token, AST* child, ...);
 static Parser* create_parser(Token* root) {
   Parser* parser = (Parser*)malloc(sizeof(Parser));
-  parser->code = (AST**)malloc(sizeof(AST*) * MAX_CODE_SIZE);
+  parser->ast = create_ast( ST_ROOT, NULL, NULL );
   parser->current = parser->root = root;
   return parser;
 }
@@ -23,7 +21,7 @@ static Token* consume(Parser* parser, TokenType type) {
   return consumed;
 }
 
-static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs, ...) {
+static AST* create_ast(SyntaxType type, Token* token, AST* child, ...) {
   AST* node = (AST*)malloc(sizeof(AST));
   node->type = type;
   node->token = token;
@@ -33,20 +31,29 @@ static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs, ...) {
     char* ep;
     node->val = strtol(sp, &ep, 10);
   }
-  node->lhs = lhs;
-  node->rhs = rhs;
-  if( type == ST_BLOCK ) {
-    node->children = (AST**)malloc(sizeof(AST*) * MAX_BLOCK_SIZE);
-    size_t i = 0;
-    va_list ap;
-    va_start(ap, rhs);
-    for (AST* arg = va_arg(ap, AST*); arg != NULL; arg = va_arg(ap, AST*)) {
-      node->children[ i ] = arg;
-      ++i;
-    }
-    va_end(ap);
+
+  for( size_t i = 0; i < MAX_BLOCK_SIZE; ++i ) {
+    node->children[ i ] = NULL;
   }
+
+  va_list ap;
+  size_t i = 0;
+  va_start(ap, child);
+  for (AST* arg = child; arg != NULL; arg = va_arg(ap, AST*)) {
+    node->children[ i ] = arg;
+    ++i;
+  }
+  va_end(ap);
+
   return node;
+}
+
+AST* get_lhs(AST* node) {
+  return node->children[ 0 ];
+}
+
+AST* get_rhs(AST* node) {
+  return node->children[ 1 ];
 }
 
 static AST* parse_lvar(Parser* parser) {
@@ -84,7 +91,7 @@ static AST* parse_unary(Parser* parser) {
     // ここはシンタックスシュガーとして生成されるので
     // 後で解釈されるときのためにダミーのトークンを登録しておく
     Token* dummy = create_token(TT_NUM, "0", 0, 1);
-    return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_unary( parser ) );
+    return create_ast( ST_SUB, tok, create_ast( ST_NUM, dummy, NULL, NULL ), parse_unary( parser ), NULL );
   }
 
   return parse_factor( parser );
@@ -95,9 +102,9 @@ static AST* parse_term(Parser* parser) {
   for( ; ; ) {
     Token* tok;
     if( (tok = consume( parser, TT_MUL )) )
-      node = create_ast( ST_MUL, tok, node, parse_unary(parser) );
+      node = create_ast( ST_MUL, tok, node, parse_unary(parser), NULL );
     else if( (tok = consume( parser, TT_DIV )) )
-      node = create_ast( ST_DIV, tok, node, parse_unary(parser) );
+      node = create_ast( ST_DIV, tok, node, parse_unary(parser), NULL );
     else
       return node;
   }
@@ -108,9 +115,9 @@ static AST* parse_expr(Parser* parser) {
   for( ; ; ) {
     Token* tok;
     if( (tok = consume( parser, TT_PLUS )) )
-      node = create_ast( ST_ADD, tok, node, parse_term(parser) );
+      node = create_ast( ST_ADD, tok, node, parse_term(parser), NULL );
     else if( (tok = consume( parser, TT_MINUS )) )
-      node = create_ast( ST_SUB, tok, node, parse_term(parser) );
+      node = create_ast( ST_SUB, tok, node, parse_term(parser), NULL );
     else
       return node;
   }
@@ -122,13 +129,13 @@ static AST* parse_rational(Parser* parser) {
   for( ; ; ) {
     Token* tok;
     if( (tok = consume( parser, TT_LT )) )
-      node = create_ast( ST_LT, tok, node, parse_expr(parser) );
+      node = create_ast( ST_LT, tok, node, parse_expr(parser), NULL );
     else if( (tok = consume( parser, TT_LTEQ )) )
-      node = create_ast( ST_LTEQ, tok, node, parse_expr(parser) );
+      node = create_ast( ST_LTEQ, tok, node, parse_expr(parser), NULL );
     else if( (tok = consume( parser, TT_GT )) )
-      node = create_ast( ST_GT, tok, node, parse_expr(parser) );
+      node = create_ast( ST_GT, tok, node, parse_expr(parser), NULL );
     else if( (tok = consume( parser, TT_GTEQ )) )
-      node = create_ast( ST_GTEQ, tok, node, parse_expr(parser) );
+      node = create_ast( ST_GTEQ, tok, node, parse_expr(parser), NULL );
     else
       return node;
   }
@@ -139,9 +146,9 @@ static AST* parse_equality(Parser* parser) {
   for( ; ; ) {
     Token* tok;
     if( (tok = consume( parser, TT_EQUAL )) )
-      node = create_ast( ST_EQUAL, tok, node, parse_rational(parser) );
+      node = create_ast( ST_EQUAL, tok, node, parse_rational(parser), NULL );
     else if( (tok = consume( parser, TT_NOT_EQUAL )) )
-      node = create_ast( ST_NOT_EQUAL, tok, node, parse_rational(parser) );
+      node = create_ast( ST_NOT_EQUAL, tok, node, parse_rational(parser), NULL );
     else
       return node;
   }
@@ -151,7 +158,7 @@ static AST* parse_assign(Parser* parser) {
   AST* node = parse_equality(parser);
   Token* tok;
   if( (tok = consume(parser, TT_ASSIGN)) ) {
-    return create_ast( ST_ASSIGN, tok, node, parse_assign(parser) );
+    return create_ast( ST_ASSIGN, tok, node, parse_assign(parser), NULL );
   } else {
     return node;
   }
@@ -165,7 +172,7 @@ static AST* parse_let(Parser* parser) {
     Token* assign;
     if( (assign = consume(parser, TT_ASSIGN)) )
       rhs = parse_assign(parser);
-    return create_ast( ST_LET, tok, lhs, rhs );
+    return create_ast( ST_LET, tok, lhs, rhs, NULL );
   } else {
     return parse_assign(parser);
   }
@@ -179,7 +186,7 @@ static AST* parse_stmt(Parser* parser) {
     Token* assign;
     if( (assign = consume(parser, TT_ASSIGN)) )
       rhs = parse_assign(parser);
-    return create_ast( ST_LET, tok, lhs, rhs );
+    return create_ast( ST_LET, tok, lhs, rhs, NULL );
   } else if( (tok = consume(parser, TT_RET) ) ){
     AST* node = parse_assign(parser);
     return create_ast( ST_RET, tok, node, NULL );
@@ -198,12 +205,12 @@ Parser* parse(Token* token) {
   // stmtをすべて読み込む
   size_t i = 0;
   while( !consume(parser, TT_EOF) ) {
-    parser->code[i++] = parse_stmt(parser);
+    parser->ast->children[i++] = parse_stmt(parser);
     consume(parser, TT_SEMICOLON);
   }
 
   // NULLで終端しておくことで後続で処理できるようにする
-  parser->code[i] = NULL;
+  parser->ast->children[i] = NULL;
 
   return parser;
 }
@@ -211,7 +218,7 @@ Parser* parse(Token* token) {
 void print_ast(AST* ast, size_t level) {
   if( ast == NULL ) return;
   indent(level); fprintf(stderr, "SyntaxType: %u (%ld)\n", ast->type, ast->val);
-  print_ast(ast->lhs, level + 1);
-  print_ast(ast->rhs, level + 1);
+  print_ast(get_lhs(ast), level + 1);
+  print_ast(get_rhs(ast), level + 1);
 }
 

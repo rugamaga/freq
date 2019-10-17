@@ -70,13 +70,13 @@ int main(int argc, char **argv) {
   // TokenをASTに変換
   Parser* parser = parse(token);
   if( debug ) {
-    for( AST** node = parser->code; *node; ++node )
+    for( AST** node = parser->ast->children; *node; ++node )
       print_ast(*node, 0);
   }
 
   // コード生成
   CodeGen* gen = create_codegen(outfile, debug);
-  generate_code(gen, parser->code);
+  generate_code(gen, parser->ast->children);
 
   return 0;
 }

@@ -2,7 +2,10 @@
 
 #include "tokenizer.h"
 
+#define MAX_BLOCK_SIZE 1024
+
 typedef enum {
+  ST_ROOT,
   ST_BLOCK,
   ST_NUM,
   ST_ADD,
@@ -25,17 +28,16 @@ typedef struct tAST {
   SyntaxType type;
   Token* token;
   long val;
-  struct tAST* lhs;
-  struct tAST* rhs;
-  struct tAST** children;
+  struct tAST* children[MAX_BLOCK_SIZE];
 } AST;
 
 typedef struct {
-  AST** code;
+  AST* ast;
   Token* root;
   Token* current;
 } Parser;
 
 Parser* parse(Token* token);
-
+AST* get_lhs(AST* node);
+AST* get_rhs(AST* node);
 void print_ast(AST* ast, size_t level);
