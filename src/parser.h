@@ -3,6 +3,7 @@
 #include "tokenizer.h"
 
 typedef enum {
+  ST_BLOCK,
   ST_NUM,
   ST_ADD,
   ST_SUB,
@@ -26,6 +27,7 @@ typedef struct tAST {
   long val;
   struct tAST* lhs;
   struct tAST* rhs;
+  struct tAST** children;
 } AST;
 
 typedef struct {

@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include "parser.h"
 #include "util.h"
 
+#define MAX_BLOCK_SIZE 1024
 #define MAX_CODE_SIZE 10240
 
 static Parser* create_parser(Token* root) {
@@ -21,7 +23,7 @@ static Token* consume(Parser* parser, TokenType type) {
   return consumed;
 }
 
-static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs) {
+static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs, ...) {
   AST* node = (AST*)malloc(sizeof(AST));
   node->type = type;
   node->token = token;
@@ -33,6 +35,17 @@ static AST* create_ast(SyntaxType type, Token* token, AST* lhs, AST* rhs) {
   }
   node->lhs = lhs;
   node->rhs = rhs;
+  if( type == ST_BLOCK ) {
+    node->children = (AST**)malloc(sizeof(AST*) * MAX_BLOCK_SIZE);
+    size_t i = 0;
+    va_list ap;
+    va_start(ap, rhs);
+    for (AST* arg = va_arg(ap, AST*); arg != NULL; arg = va_arg(ap, AST*)) {
+      node->children[ i ] = arg;
+      ++i;
+    }
+    va_end(ap);
+  }
   return node;
 }
 
