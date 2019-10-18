@@ -172,8 +172,8 @@ try 2 "fun sub() { let a = 1; print(a) } fun main() { let a = 2; print(a) }"
 try 15 "fun sub(a) { a + 10 } fun main() { let r = sub(5); print(r) }"
 
 # --------- tests for ret
-try 10 "fun sub(a) { ret 10 } fun main() { print( sub(0) ) }"
-try 10 "fun sub(a) { ret 10; 20 } fun main() { print( sub(0) ) }"
-try 10 "fun sub(a) { ret 10; ret 20 } fun main() { print( sub(0) ) }"
+try 10 "fun sub(a) { return 10 } fun main() { print( sub(0) ) }"
+try 10 "fun sub(a) { return 10; 20 } fun main() { print( sub(0) ) }"
+try 10 "fun sub(a) { return 10; return 20 } fun main() { print( sub(0) ) }"
 
 echo OK

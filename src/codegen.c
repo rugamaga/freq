@@ -170,8 +170,8 @@ static size_t gen_block(CodeGen* g, AST* ast) {
       return gen_call(g, ident, reg);
     }
     break;
-    case ST_RET: {
-      comment(g, "  ; ST_RET\n");
+    case ST_RETURN: {
+      comment(g, "  ; ST_RETURN\n");
       const size_t reg = gen_block(g, get_lhs(ast));
       gen(g, "  ret i32 %%%zu\n", reg);
       g->index++; // ret increment variable index (for label variable)

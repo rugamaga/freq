@@ -16,7 +16,7 @@ typedef enum {
   ST_DIV,
   ST_LET,
   ST_CALL,
-  ST_RET,
+  ST_RETURN,
   ST_ASSIGN,
   ST_VAR,
   ST_EQUAL,

@@ -12,7 +12,7 @@ typedef enum {
   TT_MUL,
   TT_DIV,
   TT_LET,
-  TT_RET,
+  TT_RETURN,
   TT_FUN,
   TT_LEFT_PAREN,
   TT_RIGHT_PAREN,

@@ -213,9 +213,9 @@ static AST* parse_stmt(Parser* parser) {
     if( (assign = consume(parser, TT_ASSIGN)) )
       rhs = parse_assign(parser);
     return create_ast( ST_LET, tok, lhs, rhs, NULL );
-  } else if( (tok = consume(parser, TT_RET) ) ){
+  } else if( (tok = consume(parser, TT_RETURN) ) ){
     AST* node = parse_assign(parser);
-    return create_ast( ST_RET, tok, node, NULL );
+    return create_ast( ST_RETURN, tok, node, NULL );
   } else {
     return parse_assign(parser);
   }

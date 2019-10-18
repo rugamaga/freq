@@ -78,8 +78,8 @@ bool skip_space(Tokenizer* tn) {
 }
 
 static const Reserved reserved[] = {
+  { 6, "return", TT_RETURN },
   { 3, "let", TT_LET },
-  { 3, "ret", TT_RET },
   { 3, "fun", TT_FUN },
   { 2, "==", TT_EQUAL },
   { 2, "!=", TT_NOT_EQUAL },
