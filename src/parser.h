@@ -6,6 +6,8 @@
 
 typedef enum {
   ST_ROOT,
+  ST_FUNC,
+  ST_ARGS,
   ST_BLOCK,
   ST_NUM,
   ST_ADD,

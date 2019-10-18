@@ -99,6 +99,7 @@ static const Reserved reserved[] = {
   { 1, "{", TT_LEFT_BRACE },
   { 1, "}", TT_RIGHT_BRACE },
   { 1, ";", TT_SEMICOLON },
+  { 1, ",", TT_COMMA },
 };
 
 bool match_reserved(Tokenizer* tn) {
