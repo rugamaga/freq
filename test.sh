@@ -187,8 +187,15 @@ try 5 "fun sub(a) a; fun main() { print( sub(5) ) }"
 # --------- tests for if statement
 try 10 "fun main() { if (1) { print(10) } else { print(20) } }"
 try 20 "fun main() { if (0) { print(10) } else { print(20) } }"
+
 try 10 "fun main() { if (1) { if(1) print(10) else print(20) } else { print(30) } }"
 try 20 "fun main() { if (1) { if(0) print(10) else print(20) } else { print(30) } }"
 try 30 "fun main() { if (0) { if(1) print(10) else print(20) } else { print(30) } }"
+
+try 10 "fun main() { if (1) { print(10) } else { if (1) { print(20) } else { print(30) } } }"
+try 20 "fun main() { if (0) { print(10) } else { if (1) { print(20) } else { print(30) } } }"
+try 30 "fun main() { if (0) { print(10) } else { if (0) { print(20) } else { print(30) } } }"
+
+try_file 20 "test/if.fq"
 
 echo OK

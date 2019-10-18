@@ -1,0 +1,9 @@
+fun sub(a) a == 10
+
+fun main() {
+  if( sub(5) ) {
+    print(10)
+  } else {
+    print(20)
+  }
+}
