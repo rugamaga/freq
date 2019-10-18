@@ -29,35 +29,6 @@ static void gen(CodeGen* g, const char* format, ...) {
   va_end(va);
 }
 
-static size_t gen_func_define_name(CodeGen* g, Token* name) {
-  // reset variable index!!
-  g->index = 0;
-  gen(g, "define i32 @%.*s(", name->len, name->buffer + name->pos);
-  return g->index;
-}
-
-static size_t gen_func_define_arg(CodeGen* g, Token* name){
-  ++(g->index);
-  gen(g, "%.*s,", name->len, name->buffer + name->pos);
-  return g->index;
-}
-
-static size_t gen_func_start(CodeGen* g) {
-  gen(g, ") nounwind {\n");
-  return g->index;
-}
-
-static size_t gen_func_end(CodeGen* g, size_t result_reg) {
-  // TODO: for only main func
-  comment(g, "  ; ------------- Output result\n");
-  g->index += 2;
-  gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", result_reg);
-  gen(g, "\n");
-  gen(g, "  ret i32 %%%zu\n", result_reg);
-  gen(g, "}\n");
-  return g->index;
-}
-
 static size_t gen_alloca(CodeGen* g) {
   const size_t mem = ++(g->index);
   gen(g, "  %%%zu = alloca i32, align 4\n", mem);
@@ -128,6 +99,41 @@ static void gen_named_store(CodeGen* g, Token* lvar, size_t reg) {
   gen(g, "  store i32 %%%zu, i32* %%%.*s, align 4\n", reg, lvar->len, lvar->buffer + lvar->pos);
 }
 
+static size_t gen_func_define_name(CodeGen* g, Token* name) {
+  gen(g, "define i32 @%.*s(", name->len, name->buffer + name->pos);
+  return g->index;
+}
+
+static size_t gen_func_define_arg(CodeGen* g){
+  if( g->index != 0 ) gen(g, ", ");
+  gen(g, "i32");
+  return ++(g->index);
+}
+
+static size_t gen_func_start(CodeGen* g) {
+  gen(g, ") nounwind {\n");
+  return g->index;
+}
+
+static size_t gen_func_start_arg(CodeGen* g, size_t arg_reg, Token* name) {
+  gen_named_alloca(g, name);
+  gen_named_store(g, name, arg_reg);
+  return g->index;
+}
+
+static size_t gen_func_end(CodeGen* g, size_t result_reg) {
+  comment(g, "  ; ------------- Returning result\n");
+  gen(g, "  ret i32 %%%zu\n", result_reg);
+  gen(g, "}\n");
+  return g->index;
+}
+
+static size_t gen_call(CodeGen* g, Token* ident, size_t reg) {
+  gen(g, "  call i32 (i32) @%.*s(i32 %%%zu)\n", ident->len, ident->buffer + ident->pos, reg);
+  return ++(g->index);
+}
+
+
 static size_t gen_block(CodeGen* g, AST* ast) {
   switch( ast->type ) {
     case ST_NUM: {
@@ -155,13 +161,20 @@ static size_t gen_block(CodeGen* g, AST* ast) {
       return reg;
     }
     break;
+    case ST_CALL: {
+      comment(g, "  ; ST_CALL\n");
+      Token* ident = ast->token;
+      // Currently , Only single argument function is implemented
+      // TODO: multiple arguments
+      const size_t reg = gen_block(g, get_lhs(ast));
+      return gen_call(g, ident, reg);
+    }
+    break;
     case ST_RET: {
       comment(g, "  ; ST_RET\n");
       const size_t reg = gen_block(g, get_lhs(ast));
-      // TODO: after implement function, delete it.
-      g->index += 2;
-      gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", reg);
       gen(g, "  ret i32 %%%zu\n", reg);
+      g->index++; // ret increment variable index (for label variable)
       return reg;
     }
     break;
@@ -261,10 +274,21 @@ static size_t gen_block(CodeGen* g, AST* ast) {
 
 void generate_func(CodeGen* g, AST* func) {
   gen_func_define_name(g, func->token);
-  for( AST** arg = get_lhs(func)->children; *arg; ++arg ) {
-    gen_func_define_arg(g, (*arg)->token);
+  AST* args = get_lhs(func);
+  // reset variable index!!
+  g->index = 0;
+  for( AST** arg = args->children; *arg; ++arg ) {
+    gen_func_define_arg(g);
   }
   gen_func_start(g);
+
+  comment(g, "; --------- Store args\n");
+  // reset variable index!!
+  g->index = 0;
+  // args
+  for( AST** arg = args->children; *arg; ++arg ) {
+    gen_func_start_arg(g, g->index++, (*arg)->token);
+  }
   size_t result_reg = gen_block(g, get_rhs(func));
   gen_func_end(g, result_reg);
 }
@@ -282,6 +306,11 @@ void generate_code(CodeGen* g, AST* root) {
   gen(g, "declare i32 @fprintf(%%FILE*, i8*, ...)\n");
   gen(g, "declare i32 @printf(i8*, ...)\n");
   gen(g, "declare i32 @atoi(...)\n");
+
+  gen(g, "define i32 @print(i32) nounwind {\n");
+  gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%0)\n");
+  gen(g, "  ret i32 %%0\n");
+  gen(g, "}\n");
   gen(g, "\n");
 
   size_t result_reg;

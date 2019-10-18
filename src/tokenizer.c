@@ -111,10 +111,8 @@ bool match_reserved(Tokenizer* tn) {
       all_matched &= (r.word[ j ] == read( tn, j ));
     }
     if( !all_matched ) continue;
-    // 次の文字がアルファベットとかならこれはIDENTっぽいので駄目
-    if( isalpha( read(tn, r.size) ) ) continue;
-    // 先頭が文字であるなら、最後が数字もIDENTの可能性が残るので駄目。
-    if( isalpha( read(tn, 0 ) ) && isdigit( read(tn, r.size) ) ) continue;
+    // 先頭が文字であるなら、文字も数字もIDENTの可能性が残るので駄目。
+    if( isalpha( read(tn, 0 ) ) && isalnum( read(tn, r.size) ) ) continue;
     // これだった
     accept( tn, r.type, r.size );
     return true;

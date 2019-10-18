@@ -6,6 +6,9 @@
 #include "util.h"
 
 static AST* create_ast(SyntaxType type, Token* token, AST* child, ...);
+static AST* parse_stmt(Parser* parser);
+static AST* parse_assign(Parser* parser);
+
 static Parser* create_parser(Token* root) {
   Parser* parser = (Parser*)malloc(sizeof(Parser));
   parser->ast = create_ast( ST_ROOT, NULL, NULL );
@@ -66,7 +69,6 @@ static AST* parse_lvar(Parser* parser) {
 static AST* parse_expr(Parser* parser);
 static AST* parse_factor(Parser* parser) {
   Token* tok;
-  AST* node;
   if( consume( parser, TT_LEFT_PAREN ) ) {
     AST* node = parse_expr( parser );
     if( consume( parser, TT_RIGHT_PAREN ) ) {
@@ -77,8 +79,23 @@ static AST* parse_factor(Parser* parser) {
 
   if( (tok = consume( parser, TT_NUM )) )
     return create_ast( ST_NUM, tok, NULL, NULL );
-  if( (tok = consume( parser, TT_IDENT )) )
-    return create_ast( ST_VAR, tok, NULL, NULL );
+
+  if( (tok = consume( parser, TT_IDENT )) ) {
+    if( consume( parser, TT_LEFT_PAREN ) ) {
+      AST* node = create_ast( ST_CALL, tok, NULL );
+      size_t i = 0;
+      do {
+        AST* arg = parse_stmt( parser );
+        if( !arg ) break;
+        node->children[ i++ ] = arg;
+      } while( consume(parser, TT_COMMA) );
+      consume( parser, TT_RIGHT_PAREN );
+      return node;
+    } else {
+      return create_ast( ST_VAR, tok, NULL, NULL );
+    }
+  }
+
   return NULL;
 }
 
@@ -184,8 +201,7 @@ static AST* parse_stmt(Parser* parser) {
     AST* node = create_ast(ST_BLOCK, tok, NULL);
     size_t i = 0;
     do {
-      node->children[ i ] = parse_stmt(parser);
-      ++i;
+      node->children[ i++ ] = parse_stmt(parser);
     } while( consume(parser, TT_SEMICOLON) );
     node->children[ i ] = parse_stmt(parser);
     consume(parser, TT_RIGHT_BRACE);
@@ -224,6 +240,7 @@ static AST* parse_func(Parser* parser) {
     AST* stmt = parse_stmt(parser);
     return create_ast(ST_FUNC, name, args, stmt);
   }
+  return NULL;
 }
 
 Parser* parse(Token* token) {
