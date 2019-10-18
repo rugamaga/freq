@@ -197,7 +197,10 @@ static AST* parse_let(Parser* parser) {
 
 static AST* parse_stmt(Parser* parser) {
   Token* tok;
-  if( (tok = consume(parser, TT_IF)) ) {
+  if( (tok = consume(parser, TT_LOOP)) ) {
+    AST* stmt = parse_stmt(parser);
+    return create_ast(ST_LOOP, tok, stmt, NULL);
+  } else if( (tok = consume(parser, TT_IF)) ) {
     consume(parser, TT_LEFT_PAREN);
     AST* cond = parse_stmt(parser);
     consume(parser, TT_RIGHT_PAREN);

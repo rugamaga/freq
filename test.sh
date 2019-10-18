@@ -10,7 +10,7 @@ try() {
   echo "$input" | $TARGET $OPT > tmp.ll
   actual=`lli tmp.ll`
 
-  if [ "$actual" = "$expected" ]; then
+  if [ "$actual" == "$expected" ]; then
     echo "$input => $actual"
   else
     echo "$input => $expected expected, but got $actual"
@@ -159,6 +159,7 @@ try 11 "fun main() { let a = 10; print( a + 1 ) }"
 try 7 "fun main() { let a = 10; let b = 3; print( a - b ) }"
 try 7 "fun main() { let alpha = 10; let beta = 3; print( alpha - beta ) }"
 try 7 "fun main() { let a0 = 10; let a1 = 3; print( a0 - a1 ) }"
+try 7 "fun main() { let a0 = 10; a0 = a0 - 3; print( a0 ) }"
 
 # --------- tests for block
 try 3 "fun main() { { let a = 1; let b = 2; print(a + b) } }"
@@ -198,5 +199,10 @@ try 30 "fun main() { if (0) { print(10) } else { if (0) { print(20) } else { pri
 
 try_file 20 "test/if.fq"
 try_file 10 "test/if_2.fq"
+
+# --------- tests for loop statement
+try "2
+1
+0" "fun main() { let a = 3; loop { a = a - 1; print(a); a } }"
 
 echo OK

@@ -156,6 +156,14 @@ static size_t gen_block(CodeGen* g, AST* ast) {
       return reg;
     }
     break;
+    case ST_ASSIGN: {
+      comment(g, "  ; ST_ASSIGN\n");
+      const size_t num_reg = gen_block(g, get_rhs(ast));
+      gen_named_store(g, get_lhs(ast)->token, num_reg);
+      const size_t reg = gen_named_load(g, get_lhs(ast)->token);
+      return reg;
+    }
+    break;
     case ST_VAR: {
       comment(g, "  ; ST_VAR\n");
       const size_t reg = gen_named_load(g, ast->token);
@@ -213,6 +221,27 @@ static size_t gen_block(CodeGen* g, AST* ast) {
       gen(g, "label.%zu:\n", if_end_label);
       const size_t result_reg = ++(g->index);
       gen(g, "  %%%zu = phi i32 [ %%%zu, %%label.%zu ], [ %%%zu, %%label.%zu ]\n", result_reg, if_true_reg, if_true_end_label, if_false_reg, if_false_end_label);
+      return result_reg;
+    }
+    break;
+    case ST_LOOP: {
+      comment(g, "  ; ST_IF\n");
+      const size_t loop_retry_label = ++g->label_index;
+      const size_t loop_end_label = ++g->label_index;
+
+      // retry label..
+      gen(g, "  br label %%label.%zu\n", loop_retry_label);
+      gen(g, "label.%zu:\n", loop_retry_label);
+
+      // runnning a statement
+      AST* stmt = ast->children[0];
+      const size_t result_reg = gen_block(g, stmt);
+
+      // condition check
+      gen(g, "  %%%zu = icmp ne i32 %%%zu, 0\n", ++(g->index), result_reg);
+      gen(g, "  br i1 %%%zu, label %%label.%zu, label %%label.%zu\n", g->index, loop_retry_label, loop_end_label);
+      gen(g, "label.%zu:\n", loop_end_label);
+
       return result_reg;
     }
     break;
