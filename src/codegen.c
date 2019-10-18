@@ -293,7 +293,7 @@ void generate_func(CodeGen* g, AST* func) {
   gen_func_end(g, result_reg);
 }
 
-void generate_code(CodeGen* g, AST* root) {
+void generate_header(CodeGen* g) {
   gen(g, "%%FILE = type opaque\n");
   gen(g, "@__stdinp = external global %%FILE*, align 8\n");
   gen(g, "@__stdoutp = external global %%FILE*, align 8\n");
@@ -312,6 +312,10 @@ void generate_code(CodeGen* g, AST* root) {
   gen(g, "  ret i32 %%0\n");
   gen(g, "}\n");
   gen(g, "\n");
+}
+
+void generate_code(CodeGen* g, AST* root) {
+  generate_header(g);
 
   size_t result_reg;
   for( AST** current = root->children; *current; ++current ) {
