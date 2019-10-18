@@ -29,6 +29,35 @@ static void gen(CodeGen* g, const char* format, ...) {
   va_end(va);
 }
 
+static size_t gen_func_define_name(CodeGen* g, Token* name) {
+  // reset variable index!!
+  g->index = 0;
+  gen(g, "define i32 @%.*s(", name->len, name->buffer + name->pos);
+  return g->index;
+}
+
+static size_t gen_func_define_arg(CodeGen* g, Token* name){
+  ++(g->index);
+  gen(g, "%.*s,", name->len, name->buffer + name->pos);
+  return g->index;
+}
+
+static size_t gen_func_start(CodeGen* g) {
+  gen(g, ") nounwind {\n");
+  return g->index;
+}
+
+static size_t gen_func_end(CodeGen* g, size_t result_reg) {
+  // TODO: for only main func
+  comment(g, "  ; ------------- Output result\n");
+  g->index += 2;
+  gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", result_reg);
+  gen(g, "\n");
+  gen(g, "  ret i32 %%%zu\n", result_reg);
+  gen(g, "}\n");
+  return g->index;
+}
+
 static size_t gen_alloca(CodeGen* g) {
   const size_t mem = ++(g->index);
   gen(g, "  %%%zu = alloca i32, align 4\n", mem);
@@ -230,6 +259,16 @@ static size_t gen_block(CodeGen* g, AST* ast) {
   return g->index;
 }
 
+void generate_func(CodeGen* g, AST* func) {
+  gen_func_define_name(g, func->token);
+  for( AST** arg = get_lhs(func)->children; *arg; ++arg ) {
+    gen_func_define_arg(g, (*arg)->token);
+  }
+  gen_func_start(g);
+  size_t result_reg = gen_block(g, get_rhs(func));
+  gen_func_end(g, result_reg);
+}
+
 void generate_code(CodeGen* g, AST* root) {
   gen(g, "%%FILE = type opaque\n");
   gen(g, "@__stdinp = external global %%FILE*, align 8\n");
@@ -245,18 +284,9 @@ void generate_code(CodeGen* g, AST* root) {
   gen(g, "declare i32 @atoi(...)\n");
   gen(g, "\n");
 
-  gen(g, "define i32 @main() nounwind {\n");
-
   size_t result_reg;
   for( AST** current = root->children; *current; ++current ) {
-    result_reg = gen_block(g, *current);
+    generate_func(g, *current);
   }
-
-  comment(g, "  ; ------------- Output result\n");
-  gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", result_reg);
-  gen(g, "\n");
-
-  gen(g, "  ret i32 %%%zu\n", result_reg);
-  gen(g, "}\n");
 }
 

@@ -205,27 +205,24 @@ static AST* parse_stmt(Parser* parser) {
   }
 }
 
-static AST* parse_arg(Parser* parser) {
-}
-
 static AST* parse_args(Parser* parser) {
   Token* tok = consume(parser, TT_LEFT_PAREN);
   AST* node = create_ast(ST_ARGS, tok, NULL);
   size_t i = 0;
   do {
     if( !(tok = consume( parser, TT_IDENT )) ) break;
-    node->children[i] = create_ast(ST_VAR, tok, NULL );
-    ++i;
+    node->children[i++] = create_ast(ST_VAR, tok, NULL );
   } while( consume(parser, TT_COMMA) );
   consume(parser, TT_RIGHT_PAREN);
   return node;
 }
 
 static AST* parse_func(Parser* parser) {
-  Token* tok;
-  if( (tok = consume(parser, TT_FUN) ) ) {
+  if( consume(parser, TT_FUN) ) {
+    Token* name = consume(parser, TT_IDENT);
     AST* args = parse_args(parser);
-    consume(parser, TT_RIGHT_PAREN);
+    AST* stmt = parse_stmt(parser);
+    return create_ast(ST_FUNC, name, args, stmt);
   }
 }
 
@@ -236,10 +233,10 @@ Parser* parse(Token* token) {
   if( !consume( parser, TT_ROOT ) )
     return NULL;
 
-  // stmtをすべて読み込む
+  // funcをすべて読み込む
   size_t i = 0;
   while( !consume(parser, TT_EOF) ) {
-    parser->ast->children[i++] = parse_stmt(parser);
+    parser->ast->children[i++] = parse_func(parser);
     consume(parser, TT_SEMICOLON);
   }
 
