@@ -211,8 +211,9 @@ static size_t gen_block(CodeGen* g, AST* ast) {
       gen(g, "  br label %%label.%zu\n", if_end_label);
 
       gen(g, "label.%zu:\n", if_end_label);
-      gen(g, "  %%%zu = phi i32 [ %%%zu, %%label.%zu ], [ %%%zu, %%label.%zu ]\n", ++(g->index), if_true_reg, if_true_end_label, if_false_reg, if_false_end_label);
-      return g->index;
+      const size_t result_reg = ++(g->index);
+      gen(g, "  %%%zu = phi i32 [ %%%zu, %%label.%zu ], [ %%%zu, %%label.%zu ]\n", result_reg, if_true_reg, if_true_end_label, if_false_reg, if_false_end_label);
+      return result_reg;
     }
     break;
     case ST_BLOCK: {

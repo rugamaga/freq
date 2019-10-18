@@ -211,7 +211,6 @@ static AST* parse_stmt(Parser* parser) {
     do {
       node->children[ i++ ] = parse_stmt(parser);
     } while( consume(parser, TT_SEMICOLON) );
-    node->children[ i ] = parse_stmt(parser);
     consume(parser, TT_RIGHT_BRACE);
     return node;
   } else if( (tok = consume(parser, TT_LET)) ) {
@@ -219,7 +218,7 @@ static AST* parse_stmt(Parser* parser) {
     AST* rhs = NULL;
     Token* assign;
     if( (assign = consume(parser, TT_ASSIGN)) )
-      rhs = parse_assign(parser);
+      rhs = parse_stmt(parser);
     return create_ast( ST_LET, tok, lhs, rhs, NULL );
   } else if( (tok = consume(parser, TT_RETURN) ) ){
     AST* node = parse_assign(parser);

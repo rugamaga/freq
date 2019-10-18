@@ -1,0 +1,16 @@
+fun main() {
+  let a = if( 1 ) {
+    if ( 1 ) {
+      10
+    } else {
+      20
+    }
+  } else {
+    if( 1 ) {
+      30
+    } else {
+      40
+    }
+  };
+  print( a )
+}

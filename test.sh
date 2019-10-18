@@ -197,5 +197,6 @@ try 20 "fun main() { if (0) { print(10) } else { if (1) { print(20) } else { pri
 try 30 "fun main() { if (0) { print(10) } else { if (0) { print(20) } else { print(30) } } }"
 
 try_file 20 "test/if.fq"
+try_file 10 "test/if_2.fq"
 
 echo OK
