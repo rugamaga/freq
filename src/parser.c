@@ -249,7 +249,7 @@ Parser* parse(Token* token) {
 void print_ast(AST* ast, size_t level) {
   if( ast == NULL ) return;
   indent(level); fprintf(stderr, "SyntaxType: %u (%ld)\n", ast->type, ast->val);
-  print_ast(get_lhs(ast), level + 1);
-  print_ast(get_rhs(ast), level + 1);
+  for( AST** child = ast->children; *child; ++child )
+    print_ast(*child, level + 1);
 }
 
