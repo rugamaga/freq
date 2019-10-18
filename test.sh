@@ -176,4 +176,12 @@ try 10 "fun sub(a) { return 10 } fun main() { print( sub(0) ) }"
 try 10 "fun sub(a) { return 10; 20 } fun main() { print( sub(0) ) }"
 try 10 "fun sub(a) { return 10; return 20 } fun main() { print( sub(0) ) }"
 
+# --------- tests for single stmt function
+try 10 "fun sub(a) return 10 fun main() { print( sub(0) ) }"
+try 10 "fun sub(a) return 10; fun main() { print( sub(0) ) }"
+try 5 "fun sub(a) return a fun main() { print( sub(5) ) }"
+try 5 "fun sub(a) return a; fun main() { print( sub(5) ) }"
+try 5 "fun sub(a) a fun main() { print( sub(5) ) }"
+try 5 "fun sub(a) a; fun main() { print( sub(5) ) }"
+
 echo OK
