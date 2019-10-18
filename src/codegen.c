@@ -99,10 +99,10 @@ static void gen_named_store(CodeGen* g, Token* lvar, size_t reg) {
   gen(g, "  store i32 %%%zu, i32* %%%.*s, align 4\n", reg, lvar->len, lvar->buffer + lvar->pos);
 }
 
-static size_t gen_function(CodeGen* g, AST* ast) {
+static size_t gen_block(CodeGen* g, AST* ast) {
   switch( ast->type ) {
     case ST_NUM: {
-      comment(g, "  ; Assign ST_NUM\n");
+      comment(g, "  ; ST_NUM\n");
       const size_t mem = gen_alloca(g);
       gen_store_immediate(g, ast->val, mem);
       const size_t reg = gen_load(g, mem);
@@ -110,10 +110,10 @@ static size_t gen_function(CodeGen* g, AST* ast) {
     }
     break;
     case ST_LET: {
-      comment(g, "  ; Assign ST_LET\n");
+      comment(g, "  ; ST_LET\n");
       gen_named_alloca(g, get_lhs(ast)->token);
       if( get_rhs(ast) ) {
-        const size_t num_reg = gen_function(g, get_rhs(ast));
+        const size_t num_reg = gen_block(g, get_rhs(ast));
         gen_named_store(g, get_lhs(ast)->token, num_reg);
       }
       const size_t reg = gen_named_load(g, get_lhs(ast)->token);
@@ -121,19 +121,28 @@ static size_t gen_function(CodeGen* g, AST* ast) {
     }
     break;
     case ST_VAR: {
-      comment(g, "  ; Load ST_VAR\n");
+      comment(g, "  ; ST_VAR\n");
       const size_t reg = gen_named_load(g, ast->token);
       return reg;
     }
     break;
     case ST_RET: {
-      comment(g, "  ; Load ST_RET\n");
-      const size_t reg = gen_function(g, get_lhs(ast));
+      comment(g, "  ; ST_RET\n");
+      const size_t reg = gen_block(g, get_lhs(ast));
       // TODO: after implement function, delete it.
       g->index += 2;
       gen(g, "  call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @str, i64 0, i64 0), i32 %%%zu)\n", reg);
       gen(g, "  ret i32 %%%zu\n", reg);
       return reg;
+    }
+    break;
+    case ST_BLOCK: {
+      comment(g, "  ; ST_BLOCK\n");
+      size_t result_reg;
+      for( AST** current = ast->children; *current; ++current ) {
+        result_reg = gen_block(g, *current);
+      }
+      return result_reg;
     }
     break;
     default:
@@ -142,10 +151,10 @@ static size_t gen_function(CodeGen* g, AST* ast) {
   }
 
   comment(g, "  ; ------------- Calculate LHS\n");
-  const size_t lhs_reg = gen_function(g, get_lhs(ast));
+  const size_t lhs_reg = gen_block(g, get_lhs(ast));
 
   comment(g, "  ; ------------- Calculate RHS\n");
-  const size_t rhs_reg = gen_function(g, get_rhs(ast));
+  const size_t rhs_reg = gen_block(g, get_rhs(ast));
 
   switch( ast->type ) {
   case ST_ADD:
@@ -240,7 +249,7 @@ void generate_code(CodeGen* g, AST* root) {
 
   size_t result_reg;
   for( AST** current = root->children; *current; ++current ) {
-    result_reg = gen_function(g, *current);
+    result_reg = gen_block(g, *current);
   }
 
   comment(g, "  ; ------------- Output result\n");

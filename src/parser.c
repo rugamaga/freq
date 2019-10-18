@@ -180,7 +180,17 @@ static AST* parse_let(Parser* parser) {
 
 static AST* parse_stmt(Parser* parser) {
   Token* tok;
-  if( (tok = consume(parser, TT_LET)) ) {
+  if( (tok = consume(parser, TT_LEFT_BRACE)) ) {
+    AST* node = create_ast(ST_BLOCK, tok, NULL);
+    size_t i = 0;
+    do {
+      node->children[ i ] = parse_stmt(parser);
+      ++i;
+    } while( consume(parser, TT_SEMICOLON) );
+    node->children[ i ] = parse_stmt(parser);
+    consume(parser, TT_RIGHT_BRACE);
+    return node;
+  } else if( (tok = consume(parser, TT_LET)) ) {
     AST* lhs = parse_lvar(parser);
     AST* rhs = NULL;
     Token* assign;

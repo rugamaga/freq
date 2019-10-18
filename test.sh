@@ -165,4 +165,7 @@ try 10 "ret 10"
 try 10 "ret 10; 20"
 try 10 "ret 10; ret 20"
 
+# --------- tests for block
+try 3 "{ let a = 1; let b = 2; a + b }"
+
 echo OK
