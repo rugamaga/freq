@@ -200,9 +200,16 @@ try 30 "fun main() { if (0) { print(10) } else { if (0) { print(20) } else { pri
 try_file 20 "test/if.fq"
 try_file 10 "test/if_2.fq"
 
+try "10" "fun main() { if (1) { print(10) } }"
+try "" "fun main() { if (0) { print(10) } }"
+
 # --------- tests for loop statement
 try "2
 1
 0" "fun main() { let a = 3; loop { a = a - 1; print(a); a } }"
+
+try "2
+1
+0" "fun main() { let a = 3; loop if (a != 0) { a = a - 1; print(a) } }"
 
 echo OK
