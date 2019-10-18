@@ -7,6 +7,7 @@
 typedef struct {
   FILE* output;
   size_t index;
+  size_t label_index;
   bool debug;
 } CodeGen;
 

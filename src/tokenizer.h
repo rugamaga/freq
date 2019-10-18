@@ -5,7 +5,10 @@ typedef enum {
   TT_ROOT, // ROOTトークン。tokenizerの実装を簡単にするのに最初に必ず入っている
   TT_EOF,  // EOFトークン。Parserの実装を簡単にするために最後にかならず入っている
 
-  // メタなtoken
+  // メタでないtoken
+  TT_IF,
+  TT_ELSE,
+  TT_LOOP,
   TT_NUM,
   TT_PLUS,
   TT_MINUS,

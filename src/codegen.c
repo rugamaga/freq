@@ -9,6 +9,7 @@ CodeGen* create_codegen(FILE* fp, bool debug) {
   CodeGen* g = (CodeGen*)malloc(sizeof(CodeGen));
   g->output = fp;
   g->index = 0;
+  g->label_index = 0;
   g->debug = debug;
   return g;
 }
@@ -178,6 +179,42 @@ static size_t gen_block(CodeGen* g, AST* ast) {
       return reg;
     }
     break;
+    case ST_IF: {
+      comment(g, "  ; ST_IF\n");
+      AST* cond = ast->children[0];
+
+      const size_t if_true_label = ++g->label_index;
+      const size_t if_false_label = ++g->label_index;
+      const size_t if_end_label = ++g->label_index;
+
+      // condition
+      const size_t cmp_reg = gen_block(g, cond);
+      gen(g, "  %%%zu = icmp ne i32 %%%zu, 0\n", ++(g->index), cmp_reg);
+      gen(g, "  br i1 %%%zu, label %%label.%zu, label %%label.%zu\n", g->index, if_true_label, if_false_label);
+
+      // when true
+      gen(g, "label.%zu:\n", if_true_label);
+      AST* when_true = ast->children[1];
+      const size_t before_true = g->label_index;
+      const size_t if_true_reg = gen_block(g, when_true);
+      size_t if_true_end_label = g->label_index;
+      if( if_true_end_label == before_true ) if_true_end_label = if_true_label;
+      gen(g, "  br label %%label.%zu\n", if_end_label);
+
+      // when false
+      gen(g, "label.%zu:\n", if_false_label);
+      AST* when_false = ast->children[2];
+      const size_t before_false = g->label_index;
+      const size_t if_false_reg = gen_block(g, when_false);
+      size_t if_false_end_label = g->label_index;
+      if( if_false_end_label == before_false ) if_false_end_label = if_false_label;
+      gen(g, "  br label %%label.%zu\n", if_end_label);
+
+      gen(g, "label.%zu:\n", if_end_label);
+      gen(g, "  %%%zu = phi i32 [ %%%zu, %%label.%zu ], [ %%%zu, %%label.%zu ]\n", ++(g->index), if_true_reg, if_true_end_label, if_false_reg, if_false_end_label);
+      return g->index;
+    }
+    break;
     case ST_BLOCK: {
       comment(g, "  ; ST_BLOCK\n");
       size_t result_reg;
@@ -277,6 +314,7 @@ void generate_func(CodeGen* g, AST* func) {
   AST* args = get_lhs(func);
   // reset variable index!!
   g->index = 0;
+  g->label_index = 0;
   for( AST** arg = args->children; *arg; ++arg ) {
     gen_func_define_arg(g);
   }
@@ -285,6 +323,7 @@ void generate_func(CodeGen* g, AST* func) {
   comment(g, "; --------- Store args\n");
   // reset variable index!!
   g->index = 0;
+  g->label_index = 0;
   // args
   for( AST** arg = args->children; *arg; ++arg ) {
     gen_func_start_arg(g, g->index++, (*arg)->token);

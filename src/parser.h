@@ -9,6 +9,8 @@ typedef enum {
   ST_FUNC,
   ST_ARGS,
   ST_BLOCK,
+  ST_IF,
+  ST_LOOP,
   ST_NUM,
   ST_ADD,
   ST_SUB,

@@ -197,7 +197,15 @@ static AST* parse_let(Parser* parser) {
 
 static AST* parse_stmt(Parser* parser) {
   Token* tok;
-  if( (tok = consume(parser, TT_LEFT_BRACE)) ) {
+  if( (tok = consume(parser, TT_IF)) ) {
+    consume(parser, TT_LEFT_PAREN);
+    AST* cond = parse_stmt(parser);
+    consume(parser, TT_RIGHT_PAREN);
+    AST* when_true = parse_stmt(parser);
+    consume(parser, TT_ELSE);
+    AST* when_false = parse_stmt(parser);
+    return create_ast(ST_IF, tok, cond, when_true, when_false, NULL);
+  } else if( (tok = consume(parser, TT_LEFT_BRACE)) ) {
     AST* node = create_ast(ST_BLOCK, tok, NULL);
     size_t i = 0;
     do {
