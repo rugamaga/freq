@@ -1,4 +1,4 @@
-# (Programming) language `freq`
+# Programming language `freq`
 
 ## How to build?
 
