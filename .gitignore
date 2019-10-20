@@ -1,5 +1,3 @@
+.stack-work/
+freq.cabal
 *~
-*.o
-tmp*
-obj/
-bin/
