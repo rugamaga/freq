@@ -1,6 +1,7 @@
 module Main where
 
-import Lib
+import Tokenizer
+import Parser
 
 main :: IO ()
-main = someFunc
+main = print $ tokenize "fun main() { return 1 }"
